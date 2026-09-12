@@ -1,26 +1,27 @@
 ﻿import axios from 'axios';
 
-const resolveApiBase = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+// const resolveApiBase = () => {
+//   const envUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  if (typeof window === 'undefined') {
-    return envUrl || 'http://localhost:5000/api';
-  }
+//   if (typeof window === 'undefined') {
+//     return envUrl || 'http://localhost:5000/api';
+//   }
 
-  const { hostname, protocol } = window.location;
+//   const { hostname, protocol } = window.location;
 
-  if (envUrl) {
-    try {
-      if (new URL(envUrl).hostname === hostname) return envUrl;
-    } catch (_) {
-    }
-  }
+//   if (envUrl) {
+//     try {
+//       if (new URL(envUrl).hostname === hostname) return envUrl;
+//     } catch (_) {
+//     }
+//   }
 
-  const apiPort = process.env.NEXT_PUBLIC_API_PORT || '5000';
-  return `${protocol}//${hostname}:${apiPort}/api`;
-};
+//   const apiPort = process.env.NEXT_PUBLIC_API_PORT || '5000';
+//   return `${protocol}//${hostname}:${apiPort}/api`;
+// };
 
-const API_BASE = resolveApiBase();
+// const API_BASE = resolveApiBase();
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 const api = axios.create({
   baseURL: API_BASE,

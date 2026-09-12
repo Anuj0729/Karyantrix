@@ -434,7 +434,6 @@ frontend/.env.local
 Example:
 
 ```env
-NEXT_PUBLIC_API_PORT=5000
 NEXT_PUBLIC_SITE_URL=http://localhost:5175
 NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
