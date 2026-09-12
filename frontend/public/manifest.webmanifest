@@ -1,0 +1,57 @@
+{
+  "name": "Karyantrix - Kaam Aapka, Zimmedari Hamari",
+  "short_name": "Karyantrix",
+  "description": "A trusted service marketplace connecting customers with verified, background-checked local service providers.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#185FA5",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Providers",
+      "url": "/providers",
+      "description": "Find a verified service provider near you"
+    },
+    {
+      "name": "My Bookings",
+      "url": "/bookings",
+      "description": "Track your active and past bookings"
+    },
+    {
+      "name": "Messages",
+      "url": "/messages",
+      "description": "Chat with providers and customers"
+    }
+  ]
+}
