@@ -1,46 +1,45 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import {
-  MapPin,
-  Phone,
-  FileText,
-  Star,
-  MessageSquare,
-  Calendar,
-  Briefcase,
-  Share2,
-  Pencil,
-  CheckCircle2,
-  CircleDashed,
-  Wallet,
-  Clock,
-  GraduationCap,
-  Plus,
-  Image as ImageIcon,
-  ChevronDown,
-  ArrowUpDown,
-  ShieldCheck,
-  Camera,
-  ArrowLeft
-} from 'lucide-react';
-import api from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
+import {
+    ArrowUpDown,
+    Briefcase,
+    Calendar,
+    Camera,
+    CheckCircle2,
+    ChevronDown,
+    CircleDashed,
+    Clock,
+    FileText,
+    GraduationCap,
+    Image as ImageIcon,
+    MapPin,
+    MessageSquare,
+    Pencil,
+    Phone,
+    Plus,
+    Share2,
+    ShieldCheck,
+    Star,
+    Wallet
+} from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useMemo, useRef, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
+import { priceTypeShortLabel } from '../../lib/priceType';
+import ChangePasswordCard from '../ChangePasswordCard';
+import ContactUpdateCard from '../ContactUpdateCard';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
+import { Field, TextInput } from '../ui/Field';
 import { useToast } from '../ui/Toast';
 import Avatar from './Avatar';
 import StarRating from './StarRating';
-import dynamic from 'next/dynamic';
 const AddCertificationModal = dynamic(() => import('./AddCertificationModal'));
 const AddPortfolioModal = dynamic(() => import('./AddPortfolioModal'));
-import ContactUpdateCard from '../ContactUpdateCard';
-import ChangePasswordCard from '../ChangePasswordCard';
-import { Field, TextInput } from '../ui/Field';
-import Button from '../ui/Button';
-import Card from '../ui/Card';
-import { priceTypeShortLabel } from '../../lib/priceType';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 const DAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };

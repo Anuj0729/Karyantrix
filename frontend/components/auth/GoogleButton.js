@@ -43,7 +43,7 @@ function GoogleIcon() {
 export default function GoogleButton({ onCredential, onError, disabled = false }) {
   const [scriptReady, setScriptReady] = useState(false);
   const [loading, setLoading] = useState(false);
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = process.env.NEXT_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     if (!clientId) return;

@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { Gavel, Heart, MapPin, MessageCircle, Play, User } from 'lucide-react';
-import Card from '../ui/Card';
-import Badge from '../ui/Badge';
+import { useState } from 'react';
 import StatusBadge from '../StatusBadge';
+import Badge from '../ui/Badge';
+import Card from '../ui/Card';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const mediaUrl = (url) => (url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 const EXPERIENCE_LABELS = {

@@ -1,48 +1,48 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowLeft,
-  ArrowRight,
-  BadgeCheck,
-  Calendar,
-  Camera,
-  CircleAlert,
-  Images,
-  ListChecks,
-  MapPin,
-  Pencil,
-  Play,
-  Plus,
-  Share2,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  UserRound,
-  Wallet,
+    ArrowLeft,
+    ArrowRight,
+    BadgeCheck,
+    Calendar,
+    Camera,
+    CircleAlert,
+    Images,
+    ListChecks,
+    MapPin,
+    Pencil,
+    Play,
+    Plus,
+    Share2,
+    ShieldCheck,
+    Sparkles,
+    Trash2,
+    UserRound,
+    Wallet,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import ProtectedRoute from '../../components/ProtectedRoute';
-import api from '../../lib/api';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import Spinner from '../../components/ui/Spinner';
-import { Field, TextInput, TextArea } from '../../components/ui/Field';
-import StatusBadge from '../../components/StatusBadge';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import BookingCard from '../../components/BookingCard';
 import ChangePasswordCard from '../../components/ChangePasswordCard';
 import ContactUpdateCard from '../../components/ContactUpdateCard';
-import RequirementCard from '../../components/RequirementCard';
-import dynamic from 'next/dynamic';
-const RequirementComposerModal = dynamic(() => import('../../components/RequirementComposerModal'));
-import BookingCard from '../../components/BookingCard';
-import { Skeleton, RowSkeleton } from '../../components/ui/Skeleton';
-import { useToast } from '../../components/ui/Toast';
+import ProtectedRoute from '../../components/ProtectedRoute';
 import ProviderProfileRoute from '../../components/provider/ProviderProfileRoute';
+import RequirementCard from '../../components/RequirementCard';
+import StatusBadge from '../../components/StatusBadge';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import { Field, TextArea, TextInput } from '../../components/ui/Field';
+import { RowSkeleton, Skeleton } from '../../components/ui/Skeleton';
+import Spinner from '../../components/ui/Spinner';
+import { useToast } from '../../components/ui/Toast';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 import useRefetchOnFocus from '../../lib/useRefetchOnFocus';
+const RequirementComposerModal = dynamic(() => import('../../components/RequirementComposerModal'));
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 const fadeUp = {

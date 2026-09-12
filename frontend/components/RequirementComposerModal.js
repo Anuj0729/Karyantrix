@@ -1,21 +1,21 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { Camera, LocateFixed, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, LocateFixed, X } from 'lucide-react';
 import api from '../lib/api';
+import { forwardGeocode, reverseGeocode } from '../lib/geocode';
 import { uploadAllMedia } from '../lib/uploadService';
 import useGeolocation from '../lib/useGeolocation';
-import { reverseGeocode, forwardGeocode } from '../lib/geocode';
-import { useToast } from './ui/Toast';
+import Button from './ui/Button';
 import { Field, TextArea, TextInput } from './ui/Field';
 import MultiSelect from './ui/MultiSelect';
-import Button from './ui/Button';
+import { useToast } from './ui/Toast';
 
 const MAX_MEDIA = 5;
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const mediaUrl = (url) => (url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 const EXPERIENCE_OPTIONS = [

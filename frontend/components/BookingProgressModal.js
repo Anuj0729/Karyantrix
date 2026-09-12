@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, Clock, Hammer, ImagePlus, Loader2, MessageSquareWarning, Play, X } from 'lucide-react';
-import api from '../lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from './ui/Toast';
-import { Field, TextArea } from './ui/Field';
-import Button from './ui/Button';
-import Badge from './ui/Badge';
+import api from '../lib/api';
 import { getSocket } from '../lib/socket';
+import Badge from './ui/Badge';
+import Button from './ui/Button';
+import { Field, TextArea } from './ui/Field';
+import { useToast } from './ui/Toast';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const mediaUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 function UpdateStatusBadge({ status }) {

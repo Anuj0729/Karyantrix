@@ -1,23 +1,22 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Gavel, Wallet, X } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Gavel, Wallet, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import { getSocket } from '../lib/socket';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from './ui/Toast';
-import { Field, TextArea, TextInput } from './ui/Field';
+import ReviewForm from './ReviewForm';
 import StatusBadge from './StatusBadge';
 import Button from './ui/Button';
+import { Field, TextArea, TextInput } from './ui/Field';
 import Spinner from './ui/Spinner';
-import ReviewForm from './ReviewForm';
-import Portal from './ui/Portal';
+import { useToast } from './ui/Toast';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
 const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 

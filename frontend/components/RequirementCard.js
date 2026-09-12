@@ -1,33 +1,33 @@
 'use client';
 
-import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Gavel,
-  MapPin,
-  Maximize2,
-  MessageSquare,
-  Pencil,
-  Send,
-  Trash2,
-  X,
+    ChevronLeft,
+    ChevronRight,
+    Gavel,
+    MapPin,
+    Maximize2,
+    MessageSquare,
+    Pencil,
+    Send,
+    Trash2,
+    X,
 } from 'lucide-react';
-import Card from './ui/Card';
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
+import Card from './ui/Card';
 import Portal from './ui/Portal';
-import dynamic from 'next/dynamic';
+import { useToast } from './ui/Toast';
 const BidsModal = dynamic(() => import('./BidsModal'));
 const RequirementComposerModal = dynamic(() => import('./RequirementComposerModal'));
-import { useAuth } from '../context/AuthContext';
-import { useToast } from './ui/Toast';
-import api from '../lib/api';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
 const mediaUrl = (url) => (url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 

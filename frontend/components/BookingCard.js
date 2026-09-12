@@ -1,22 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Ban, CheckCircle2, Hammer, IndianRupee, ListChecks, Star, XCircle } from 'lucide-react';
-import Card from './ui/Card';
-import Button from './ui/Button';
-import StatusBadge from './StatusBadge';
 import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
+import { loadRazorpayScript } from '../lib/loadRazorpay';
+import { CANCELLATION_REASON_LABELS } from './CancelBookingModal';
+import StatusBadge from './StatusBadge';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import { useToast } from './ui/Toast';
 const BookingProgressModal = dynamic(() => import('./BookingProgressModal'));
 const ReviewModal = dynamic(() => import('./ReviewModal'));
 const CancelBookingModal = dynamic(() => import('./CancelBookingModal'));
-import { CANCELLATION_REASON_LABELS } from './CancelBookingModal';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from './ui/Toast';
-import api from '../lib/api';
-import { loadRazorpayScript } from '../lib/loadRazorpay';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 export default function BookingCard({ booking, onUpdated }) {

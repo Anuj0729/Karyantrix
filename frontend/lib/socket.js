@@ -18,7 +18,7 @@ const resolveSocketUrl = () => {
     }
   }
 
-  const socketPort = process.env.NEXT_PUBLIC_API_PORT || '5000';
+  const socketPort = process.env.NEXT_API_PORT || '5000';
   return `${protocol}//${hostname}:${socketPort}`;
 };
 
