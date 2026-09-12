@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import JsonLd from '../../components/JsonLd';
 import ProvidersClient from './ProvidersClient';
 
-const apiUrl = process.env.NEXT_API_URL || 'http://localhost:5000/api';
-const siteUrl = process.env.NEXT_SITE_URL || 'http://localhost:3000';
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 export const metadata = {
   title: 'Find service providers',

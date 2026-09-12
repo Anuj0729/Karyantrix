@@ -1,7 +1,7 @@
 ﻿import axios from 'axios';
 
 const resolveApiBase = () => {
-  const envUrl = process.env.NEXT_API_URL;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
 
   if (typeof window === 'undefined') {
     return envUrl || 'http://localhost:5000/api';
@@ -16,7 +16,7 @@ const resolveApiBase = () => {
     }
   }
 
-  const apiPort = process.env.NEXT_API_PORT || '5000';
+  const apiPort = process.env.NEXT_PUBLIC_API_PORT || '5000';
   return `${protocol}//${hostname}:${apiPort}/api`;
 };
 

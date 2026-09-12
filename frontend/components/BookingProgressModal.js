@@ -12,7 +12,7 @@ import Button from './ui/Button';
 import { Field, TextArea } from './ui/Field';
 import { useToast } from './ui/Toast';
 
-const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const mediaUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 function UpdateStatusBadge({ status }) {

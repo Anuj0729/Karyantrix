@@ -434,10 +434,10 @@ frontend/.env.local
 Example:
 
 ```env
-NEXT_API_PORT=5000
-NEXT_SITE_URL=http://localhost:5175
-NEXT_API_URL=http://localhost:5000
-NEXT_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_API_PORT=5000
+NEXT_PUBLIC_SITE_URL=http://localhost:5175
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ```
 
 Use the actual backend URL when deploying the frontend.
@@ -822,7 +822,7 @@ https://your-api-domain.com
 Set the frontend API URL to the deployed backend:
 
 ```env
-NEXT_API_URL=https://your-api-domain.com
+NEXT_PUBLIC_API_URL=https://your-api-domain.com
 ```
 
 Set the backend client URL to the deployed frontend:

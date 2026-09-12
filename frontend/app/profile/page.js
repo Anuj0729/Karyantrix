@@ -42,7 +42,7 @@ import api from '../../lib/api';
 import useRefetchOnFocus from '../../lib/useRefetchOnFocus';
 const RequirementComposerModal = dynamic(() => import('../../components/RequirementComposerModal'));
 
-const API_ORIGIN = (process.env.NEXT_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
 
 const fadeUp = {
