@@ -91,10 +91,12 @@ const becomeProvider = async (req, res, next) => {
       return res.status(403).json({ message: 'This account type cannot apply to become a service provider' });
     }
 
-    let profile = await ProviderProfile.findOne({ user: user.id });
-    if (!profile) {
-      profile = await ProviderProfile.create({ user: user.id, application_status: 'draft' });
-    } else if (profile.application_status === 'rejected' || profile.application_status === 'changes_required') {
+    let profile = await ProviderProfile.findOneAndUpdate(
+      { user: user.id },
+      { $setOnInsert: { user: user.id, application_status: 'draft' } },
+      { new: true, upsert: true }
+    );
+    if (profile.application_status === 'rejected' || profile.application_status === 'changes_required') {
       profile.application_status = 'incomplete';
       await profile.save();
     }
@@ -244,10 +246,6 @@ const getProviders = async (req, res, next) => {
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.max(1, Number(limit));
 
-    // A provider card is only shown to a customer when the provider's saved
-    // location falls inside that customer's viewing radius (Top Providers,
-    // Find Providers, and the per-service provider list all funnel through
-    // here / the equivalent service query, so this is enforced once).
     const viewerCoords = parseViewerCoords(req.query);
     if (viewerCoords) {
       const viewerRadiusKm = resolveViewerRadiusKm(radius, req.user);
@@ -289,8 +287,6 @@ const getProviders = async (req, res, next) => {
       });
     }
 
-    // No usable location from the customer (denied/unsupported geolocation) -
-    // fall back to the unfiltered directory rather than hiding everyone.
     const sortOption = AGG_SORT_MAP[sort] || { avg_rating: -1, total_reviews: -1 };
 
     const [count, providers] = await Promise.all([

@@ -9,8 +9,6 @@ const getCategories = async (req, res, next) => {
   }
 };
 
-// Admin-only: unlike getCategories, this returns inactive categories too so
-// the admin panel can find and re-activate a category that was deactivated.
 const getAllCategoriesAdmin = async (req, res, next) => {
   try {
     const categories = await Category.find({}).sort({ name: 1 });
@@ -20,11 +18,6 @@ const getAllCategoriesAdmin = async (req, res, next) => {
   }
 };
 
-// When a category is switched off, every catalog service and every
-// provider's live listing under it should disappear along with it; when the
-// category comes back, exactly those cascade-deactivated services and
-// listings should come back too (not ones a provider/admin had already
-// turned off on their own for unrelated reasons).
 const cascadeCategoryStatus = async (categoryId, isActive) => {
   if (isActive) {
     await Promise.all([

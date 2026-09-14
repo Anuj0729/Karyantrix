@@ -54,6 +54,8 @@ const io = new Server(server, {
     origin: corsOriginCheck,
     credentials: true,
   },
+  path: '/socket.io',
+  addTrailingSlash: false,
 });
 
 app.use(compression());

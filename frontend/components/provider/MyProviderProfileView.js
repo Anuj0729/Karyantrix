@@ -39,8 +39,7 @@ import StarRating from './StarRating';
 const AddCertificationModal = dynamic(() => import('./AddCertificationModal'));
 const AddPortfolioModal = dynamic(() => import('./AddPortfolioModal'));
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
+const avatarUrl = (url) => (!url ? null : url);
 
 const DAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
 

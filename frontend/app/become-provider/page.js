@@ -195,7 +195,11 @@ function OnboardingContent() {
             starting_price: derived.starting_price !== '' ? derived.starting_price : (p.starting_price || ''),
             starting_price_type: derived.starting_price !== '' ? derived.starting_price_type : (p.starting_price_type || 'fixed'),
             availability: p.availability || EMPTY_FORM.availability,
-            location: p.location || EMPTY_FORM.location,
+            location: {
+              text: p.location?.text || '',
+              lat: p.location?.lat ?? null,
+              lng: p.location?.lng ?? null,
+            },
             kyc_documents: {
               aadhar_front: p.kyc_documents?.aadhar_front || '',
               aadhar_back: p.kyc_documents?.aadhar_back || '',
@@ -258,7 +262,7 @@ function OnboardingContent() {
       skipNextForwardGeocode.current = false;
       return;
     }
-    const text = form.location.text.trim();
+    const text = (form.location?.text || '').trim();
     if (text.length < 3) return;
 
     setResolvingLocation(true);
@@ -594,7 +598,7 @@ function OnboardingContent() {
                   hint="Detected automatically from your device - edit it any time and we'll update the coordinates to match what you type."
                 >
                   <TextInput
-                    value={form.location.text}
+                    value={form.location.text || ''}
                     onChange={(e) => {
                       userEditedLocationRef.current = true;
                       setForm((f) => ({ ...f, location: { ...f.location, text: e.target.value } }));

@@ -115,7 +115,6 @@ export default function ChatThread({ conversationId, backHref }) {
       await deleteMessage(conversationId, messageId, scope);
     } catch (err) {
       toast(err.response?.data?.message || 'Message could not be deleted', { type: 'error' });
-      toast(err.response?.data?.message || 'Could not delete message', { type: 'error' });
     }
   };
 

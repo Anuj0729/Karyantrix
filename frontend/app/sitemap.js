@@ -1,5 +1,5 @@
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const siteUrl = process.env.SITE_URL || 'http://localhost:3000';
+const apiUrl = process.env.API_URL || 'http://localhost:5000/api';
 
 async function safeGet(path) {
   try {

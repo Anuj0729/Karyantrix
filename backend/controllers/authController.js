@@ -13,7 +13,7 @@ const setRefreshCookie = (res, token) => {
   res.cookie('refreshToken', token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'Strict',
+    sameSite: isProd ? 'None' : 'Lax',
     maxAge: REFRESH_TOKEN_EXPIRES_MS,
     path: '/',
   });
@@ -146,7 +146,7 @@ const verifyRegister = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.status(201).json({ message: 'Account created and verified successfully', accessToken, user: publicUser(user) });
+    res.status(201).json({ message: 'Account created and verified successfully', accessToken, refreshToken, user: publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -178,7 +178,7 @@ const login = async (req, res, next) => {
     const accessToken = generateAccessToken(foundUser);
     const refreshToken = generateRefreshToken(foundUser);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Logged in successfully', accessToken, user: publicUser(foundUser) });
+    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: publicUser(foundUser) });
   } catch (error) {
     next(error);
   }
@@ -250,7 +250,7 @@ const googleAuth = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Signed in with Google successfully', accessToken, user: publicUser(user) });
+    res.json({ message: 'Signed in with Google successfully', accessToken, refreshToken, user: publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -304,7 +304,7 @@ const verifyLoginOtp = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Logged in successfully', accessToken, user: publicUser(user) });
+    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -576,10 +576,16 @@ const verifyContactUpdateOtp = async (req, res, next) => {
 
 const refresh = async (req, res, next) => {
   try {
-    const token = req.cookies && req.cookies.refreshToken;
+    const token = (req.cookies && req.cookies.refreshToken) || (req.body && req.body.refreshToken);
     if (!token) return res.status(401).json({ message: 'No refresh token provided' });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: 'Refresh token is invalid or expired, please log in again' });
+    }
+
     const user = await User.findById(decoded.id);
     if (!user || !user.is_active) return res.status(401).json({ message: 'User not found or deactivated' });
 

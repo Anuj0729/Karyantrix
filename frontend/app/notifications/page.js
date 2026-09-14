@@ -23,7 +23,7 @@ const timeAgo = (dateStr) => {
 };
 
 function NotificationsContent() {
-  const { user } = useAuth();
+  const { user, setNotifications: setUnreadNotifications } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +56,7 @@ function NotificationsContent() {
 
   const markOneRead = async (id) => {
     setNotifications((prev) => prev.map((n) => ((n.id || n._id) === id ? { ...n, is_read: true } : n)));
+    setUnreadNotifications((prev) => prev.filter((n) => (n.id || n._id) !== id));
     try {
       await api.patch(`/notifications/${id}/read`);
     } catch (err) {
@@ -65,6 +66,7 @@ function NotificationsContent() {
 
   const markAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadNotifications([]);
     try {
       await api.patch('/notifications/read-all');
     } catch (err) {

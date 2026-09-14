@@ -16,9 +16,7 @@ import Spinner from './ui/Spinner';
 import { useToast } from './ui/Toast';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-
-const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
+const avatarUrl = (url) => (!url ? null : url);
 
 const timeAgo = (dateStr) => {
   const diffMs = Date.now() - new Date(dateStr).getTime();

@@ -28,6 +28,10 @@ const errorHandler = (err, req, res, next) => {
 };
 
 const notFound = (req, res, next) => {
+  if (req.path.startsWith('/socket.io')) {
+    return next();
+  }
+
   res.status(404).json({ message: `Route not found: ${req.originalUrl}` });
 };
 

@@ -30,9 +30,6 @@ const getServices = async (req, res, next) => {
     }
 
     const { ProviderProfile } = require('../models');
-
-    // A service listing only counts as "visible" when the provider offering
-    // it falls inside the customer's viewing radius (mirrors getProviders).
     let radiusKm = null;
     const viewerCoords = parseViewerCoords(req.query);
     if (viewerCoords) {
@@ -201,17 +198,12 @@ const updateService = async (req, res, next) => {
     if (duration_minutes !== undefined) service.duration_minutes = duration_minutes;
     if (is_active !== undefined) {
       if (is_active) {
-        // A provider shouldn't be able to switch their own listing back on
-        // while its whole category has been deactivated by the admin.
         const category = await Category.findById(service.category).select('is_active');
         if (!category || !category.is_active) {
           return res.status(400).json({ message: 'This listing is under a category that is currently deactivated' });
         }
       }
       service.is_active = is_active;
-      // Explicit, direct status change on this one listing - it should no
-      // longer be treated as something a category reactivation should sweep
-      // up automatically.
       service.deactivated_by_category = false;
     }
     if (images !== undefined) service.images = images;

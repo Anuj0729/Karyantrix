@@ -7,6 +7,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { RowSkeleton } from '../ui/Skeleton';
 import MyProviderProfileView from './MyProviderProfileView';
+import useRefetchOnFocus from '../../lib/useRefetchOnFocus';
 
 function EmptyState({ icon: Icon, title, description }) {
   return (
@@ -22,7 +23,7 @@ function EmptyState({ icon: Icon, title, description }) {
 
 export default function ProviderProfileRoute() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, notifications } = useAuth();
   const [profile, setProfile] = useState(null);
   const [services, setServices] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -55,6 +56,14 @@ export default function ProviderProfileRoute() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (notifications && notifications.length > 0) {
+      loadAll();
+    }
+  }, [notifications]);
+
+  useRefetchOnFocus(loadAll);
 
   if (loading) {
     return (

@@ -16,9 +16,6 @@ const getServiceCatalog = async (req, res, next) => {
   }
 };
 
-// Admin-only: unlike getServiceCatalog, this includes inactive entries (e.g.
-// ones auto-deactivated because their category was turned off) so the admin
-// panel can see and manage them.
 const getServiceCatalogAdmin = async (req, res, next) => {
   try {
     const { category_id, id } = req.query;
@@ -60,9 +57,6 @@ const updateServiceCatalog = async (req, res, next) => {
     if (description !== undefined) service.description = description;
     if (is_active !== undefined) {
       service.is_active = is_active;
-      // This is now an explicit, direct status change on this one catalog
-      // entry, so it should no longer be treated as something a category
-      // reactivation should sweep up automatically.
       service.deactivated_by_category = false;
     }
     await service.save();

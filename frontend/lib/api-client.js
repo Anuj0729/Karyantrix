@@ -1,27 +1,6 @@
 ﻿import axios from 'axios';
 
-// const resolveApiBase = () => {
-//   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-
-//   if (typeof window === 'undefined') {
-//     return envUrl || 'http://localhost:5000/api';
-//   }
-
-//   const { hostname, protocol } = window.location;
-
-//   if (envUrl) {
-//     try {
-//       if (new URL(envUrl).hostname === hostname) return envUrl;
-//     } catch (_) {
-//     }
-//   }
-
-//   const apiPort = process.env.NEXT_PUBLIC_API_PORT || '5000';
-//   return `${protocol}//${hostname}:${apiPort}/api`;
-// };
-
-// const API_BASE = resolveApiBase();
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -29,6 +8,7 @@ const api = axios.create({
 });
 
 let accessToken = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_token') : null;
+let refreshToken = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_refresh_token') : null;
 let isRefreshing = false;
 let refreshPromise = null;
 let subscribers = [];
@@ -46,6 +26,19 @@ export const clearAccessToken = () => {
     localStorage.removeItem('karyantrix_token');
   }
 };
+
+export const setRefreshToken = (token) => {
+  refreshToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem('karyantrix_refresh_token', token);
+    } else {
+      localStorage.removeItem('karyantrix_refresh_token');
+    }
+  }
+};
+
+export const clearRefreshToken = () => setRefreshToken(null);
 
 const onRefreshed = (newToken) => {
   subscribers.forEach((cb) => cb(newToken));
@@ -87,7 +80,7 @@ api.interceptors.response.use(
 
       if (!isRefreshing) {
         isRefreshing = true;
-        refreshPromise = api.post('/auth/refresh').then((res) => {
+        refreshPromise = api.post('/auth/refresh', { refreshToken }).then((res) => {
           const { accessToken: newAccessToken } = res.data || {};
           if (!newAccessToken) throw new Error('No accessToken returned from refresh');
           setAccessToken(newAccessToken, true);

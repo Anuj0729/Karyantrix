@@ -58,7 +58,6 @@ async function wipe() {
 async function seed() {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
 
-  // ---------- Platform settings ----------
   await PlatformSetting.findOneAndUpdate(
     { key: 'global' },
     {
@@ -71,7 +70,6 @@ async function seed() {
     { upsert: true }
   );
 
-  // ---------- Admin ----------
   const admin = await User.create({
     name: 'Admin User',
     email: 'admin@karyantrix.test',
@@ -81,7 +79,6 @@ async function seed() {
     avatar_url: placeholderImg('admin-avatar', 200, 200),
   });
 
-  // ---------- Categories & catalog ----------
   const categories = [];
   const catalogByCategory = {};
   for (const def of CATEGORY_DEFS) {
@@ -103,7 +100,6 @@ async function seed() {
     }
   }
 
-  // ---------- Customers ----------
   const CUSTOMER_BIOS = [
     'Homeowner looking for reliable local help.',
     'Runs a small office, hires help for maintenance.',
@@ -134,8 +130,6 @@ async function seed() {
     customers.push(customer);
   }
 
-  // ---------- Providers ----------
-  // Fixed application-status spread so every admin review state is represented.
   const APPLICATION_STATES = [
     'approved', 'approved', 'approved', 'approved', 'approved',
     'submitted', 'under_review', 'rejected', 'changes_required', 'draft',
@@ -172,7 +166,7 @@ async function seed() {
       total_reviews: isApproved ? randInt(0, 40) : 0,
       total_jobs_completed: isApproved ? randInt(0, 60) : 0,
       is_approved: isApproved,
-      is_available: i !== 2, // one approved provider marked unavailable
+      is_available: i !== 2, 
       professional_title: `${category.name} Specialist`,
       categories: [category._id],
       skills: [rand(SKILL_POOL), rand(SKILL_POOL), rand(SKILL_POOL)],
@@ -221,7 +215,6 @@ async function seed() {
 
   const approvedProviders = providers.filter((p) => p.profile.is_approved);
 
-  // ---------- Services ----------
   const services = [];
   const serviceStatuses = ['active', 'active', 'paused', 'draft'];
   for (const p of approvedProviders) {
@@ -252,10 +245,6 @@ async function seed() {
     createdServices.push(service);
   }
 
-  // ---------- Requirements + Bids ----------
-  // requirementPlans: the first 6 will be converted into bookings covering every
-  // booking lifecycle state; the rest stay open with live bidding, one is a
-  // direct/"fixed" post targeted at a specific provider.
   const EXPERIENCE_LEVEL_SETS = [['any'], ['beginner', 'intermediate'], ['expert'], ['any']];
 
   async function makeRequirement({ customer, category, city, postType = 'bids', targetProvider = null, withMedia = false }) {
@@ -302,7 +291,6 @@ async function seed() {
     await requirement.save();
   }
 
-  // 1) Awaiting advance
   const req1 = await makeRequirement({ customer: customers[0], category: categories[0], city: CITIES[0] });
   const bids1 = await bidsFor(req1, categories[0]);
   await hire(req1, bids1[0]);
@@ -318,7 +306,6 @@ async function seed() {
     status: 'awaiting_advance',
   });
 
-  // 2) In progress, with one pending and one approved progress update
   const req2 = await makeRequirement({ customer: customers[1], category: categories[1], city: CITIES[1], withMedia: true });
   const bids2 = await bidsFor(req2, categories[1]);
   await hire(req2, bids2[0]);
@@ -340,7 +327,6 @@ async function seed() {
     ],
   });
 
-  // 3) Work completed, awaiting balance payment
   const req3 = await makeRequirement({ customer: customers[2], category: categories[2], city: CITIES[2] });
   const bids3 = await bidsFor(req3, categories[2]);
   await hire(req3, bids3[0]);
@@ -363,7 +349,6 @@ async function seed() {
     payout_expected_at: daysAgo(-2),
   });
 
-  // 4) Fully completed with review + payout
   const req4 = await makeRequirement({ customer: customers[3], category: categories[3], city: CITIES[3] });
   const bids4 = await bidsFor(req4, categories[3]);
   await hire(req4, bids4[0]);
@@ -400,7 +385,6 @@ async function seed() {
   await WalletTransaction.create({ booking: booking4._id, customer: req4.customer, provider: bids4[0].provider, type: 'balance_received', direction: 'credit', amount: balance4, status: 'completed', method: 'razorpay', reference: `seed_${booking4._id}_bal` });
   await WalletTransaction.create({ booking: booking4._id, provider: bids4[0].provider, type: 'payout', direction: 'debit', amount: Math.round(bids4[0].amount * 0.9), status: 'completed', method: 'bank_transfer', reference: `seed_${booking4._id}_payout`, recorded_by: admin._id, notes: 'Weekly payout batch.' });
 
-  // 5) Cancelled by customer (fee charged to customer)
   const req5 = await makeRequirement({ customer: customers[4], category: categories[4], city: CITIES[0] });
   const bids5 = await bidsFor(req5, categories[4]);
   await hire(req5, bids5[0]);
@@ -432,7 +416,6 @@ async function seed() {
   await WalletTransaction.create({ booking: booking5._id, customer: req5.customer, type: 'cancellation_fee', direction: 'credit', amount: cancelFee5, status: 'completed', method: 'razorpay', reference: `seed_${booking5._id}_fee` });
   await WalletTransaction.create({ booking: booking5._id, customer: req5.customer, type: 'refund', direction: 'debit', amount: advance5 - cancelFee5, status: 'completed', method: 'razorpay', reference: `seed_${booking5._id}_refund` });
 
-  // 6) Cancelled by provider (fee charged to provider, customer refunded in full)
   const req6 = await makeRequirement({ customer: customers[5], category: categories[5], city: CITIES[1] });
   const bids6 = await bidsFor(req6, categories[5]);
   let booking6 = null;
@@ -466,7 +449,6 @@ async function seed() {
     await WalletTransaction.create({ booking: booking6._id, provider: bids6[0].provider, type: 'cancellation_fee', direction: 'debit', amount: Math.round(advance6 * 0.15), status: 'pending', method: 'other', reference: `seed_${booking6._id}_fee`, notes: 'To be deducted from next payout.' });
   }
 
-  // Remaining open requirements (live bidding, no booking yet)
   const req7 = await makeRequirement({ customer: customers[6], category: categories[0], city: CITIES[2], withMedia: true });
   await bidsFor(req7, categories[0]);
   req7.interested_providers = approvedProviders
@@ -478,13 +460,11 @@ async function seed() {
   const req8 = await makeRequirement({ customer: customers[7], category: categories[2], city: CITIES[3] });
   await bidsFor(req8, categories[2]);
 
-  // Direct/"fixed" requirement targeted at a specific approved provider
   const targetProvider = approvedProviders[0];
   const req9 = await makeRequirement({ customer: customers[8], category: targetProvider.category, city: CITIES[4], postType: 'fixed', targetProvider });
 
   const allRequirements = [req1, req2, req3, req4, req5, req6, req7, req8, req9];
 
-  // ---------- Notifications ----------
   await Notification.create({ user: customers[0]._id, title: 'Welcome to Karyantrix', message: 'Post your first requirement to get bids from verified providers.', type: 'general' });
   await Notification.create({ user: req1.customer, title: 'New bid received', message: 'A provider placed a bid on your requirement.', type: 'bid_received', related_requirement: req1._id });
   await Notification.create({ user: bids2[0].provider, title: 'Advance payment received', message: 'The customer paid the advance for your accepted bid.', type: 'booking_update', related_requirement: req2._id });
@@ -492,7 +472,6 @@ async function seed() {
   await Notification.create({ user: bids5[0].provider, title: 'Booking cancelled', message: 'The customer cancelled a booking with you.', type: 'booking_update', related_requirement: req5._id });
   await Notification.create({ user: customers[6]._id, title: 'Provider interested', message: 'A provider expressed interest in your requirement.', type: 'requirement_update', related_requirement: req7._id });
 
-  // ---------- Conversations & messages ----------
   const conversation1 = await Conversation.create({
     customer: req2.customer,
     provider: bids2[0].provider,
@@ -518,7 +497,6 @@ async function seed() {
   await Message.create({ conversation: conversation2._id, sender: req4.customer, type: 'image', media: { url: placeholderImg('chat-wardrobe'), media_type: 'image' } });
   await Message.create({ conversation: conversation2._id, sender: bids4[0].provider, type: 'text', text: 'Got it, thanks! I will bring matching finish samples.', is_edited: true, edited_at: daysAgo(7) });
 
-  // ---------- Reports ----------
   await Report.create({
     reporter: customers[1]._id,
     reporter_role: 'customer',
@@ -560,7 +538,6 @@ async function seed() {
     action_taken: 'none',
   });
 
-  // ---------- Support tickets ----------
   await SupportTicket.create({
     user: customers[0]._id,
     user_role: 'customer',

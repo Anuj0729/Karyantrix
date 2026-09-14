@@ -16,8 +16,7 @@ const ReviewModal = dynamic(() => import('./ReviewModal'));
 const CancelBookingModal = dynamic(() => import('./CancelBookingModal'));
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-const avatarUrl = (url) => (!url ? null : url.startsWith('http') ? url : `${API_ORIGIN}${url}`);
+const avatarUrl = (url) => (!url ? null : url);
 
 export default function BookingCard({ booking, onUpdated }) {
   const { user } = useAuth();

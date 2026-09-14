@@ -80,8 +80,6 @@ const notifyNearbyProviders = async (requirement) => {
   const requirementJson = requirement.toJSON();
   await Promise.all(
     matches.map((profile) => {
-      // Push the new post straight into the provider's live feed (if they're on
-      // the home page right now) instead of waiting for a manual refresh.
       emitToUser(profile.user, 'requirement:new', requirementJson);
       return notify(
         profile.user,
@@ -237,14 +235,6 @@ const getFeed = async (req, res, next) => {
         const providerProfile = await ProviderProfile.findOne({ user: req.user.id }).select('service_radius_km location');
         viewerRadiusKm = providerProfile?.service_radius_km ?? DEFAULT_VIEW_RADIUS_KM;
 
-        // A provider's feed must be centered on the service location they
-        // registered on their profile - the same point notifyNearbyProviders
-        // uses to decide who gets a requirement pushed live - not wherever
-        // their browser's GPS happens to be at this moment. Using the live
-        // browser location meant the feed either showed nothing (if
-        // permission was denied) or showed jobs measured from the wrong
-        // point (if the provider was simply out and about, away from their
-        // registered service area) instead of respecting their set radius.
         if (typeof providerProfile?.location?.lat === 'number' && typeof providerProfile?.location?.lng === 'number') {
           viewerLat = providerProfile.location.lat;
           viewerLng = providerProfile.location.lng;
@@ -260,9 +250,6 @@ const getFeed = async (req, res, next) => {
 
     let targetedRequirements = [];
     if (viewerObjectId && !isAdmin) {
-      // Surface a targeted booking request to both sides: the provider it was
-      // sent to, and the customer who sent it (so it shows up in their own
-      // "Requirements Near You" feed even if it falls outside their radius).
       const targetedRows = await Requirement.find({
         status: 'open',
         $or: [{ target_provider: viewerObjectId }, { customer: viewerObjectId, target_provider: { $ne: null } }],

@@ -434,9 +434,9 @@ frontend/.env.local
 Example:
 
 ```env
-NEXT_PUBLIC_SITE_URL=http://localhost:5175
-NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+SITE_URL=http://localhost:5175
+API_URL=http://localhost:5000
+GOOGLE_CLIENT_ID=
 ```
 
 Use the actual backend URL when deploying the frontend.
@@ -821,7 +821,7 @@ https://your-api-domain.com
 Set the frontend API URL to the deployed backend:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-api-domain.com
+API_URL=https://your-api-domain.com
 ```
 
 Set the backend client URL to the deployed frontend:

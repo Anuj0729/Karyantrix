@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import HomeClient from './HomeClient';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const apiUrl = process.env.API_URL || 'http://localhost:5000/api';
 
 export const metadata = {
   alternates: { canonical: '/' },

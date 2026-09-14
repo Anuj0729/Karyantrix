@@ -44,9 +44,6 @@ describe('Categories', () => {
     const category = await Category.create({ name: 'Plumbing Cascade', slug: 'plumbing-cascade' });
     const catalogEntry = await ServiceCatalog.create({ category: category.id, name: 'Tap Repair' });
     const otherCatalogEntry = await ServiceCatalog.create({ category: category.id, name: 'Pipe Fitting' });
-    // Deactivated independently of the category, before the category itself
-    // is switched off - this one should stay off even after the category is
-    // reactivated.
     otherCatalogEntry.is_active = false;
     await otherCatalogEntry.save();
 
@@ -72,8 +69,6 @@ describe('Categories', () => {
     expect(serviceAfterDeactivate.is_active).toBe(false);
     expect(serviceAfterDeactivate.deactivated_by_category).toBe(true);
 
-    // A provider can't route around the cascade by reactivating their own
-    // listing while the category is still off.
     const reactivateWhileOff = await request(app)
       .put(`/api/services/${service.id}`)
       .set('Authorization', `Bearer ${providerToken}`)
@@ -93,8 +88,6 @@ describe('Categories', () => {
     const serviceAfterActivate = await Service.findById(service.id);
     expect(serviceAfterActivate.is_active).toBe(true);
 
-    // Was deactivated on its own before the category cascade ever touched
-    // it, so it should remain off.
     const otherCatalogAfterActivate = await ServiceCatalog.findById(otherCatalogEntry.id);
     expect(otherCatalogAfterActivate.is_active).toBe(false);
   });
