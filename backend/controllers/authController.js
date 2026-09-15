@@ -76,7 +76,7 @@ const initiateRegister = async (req, res, next) => {
 
     await sendOtp(method, value, otp);
 
-    res.json({ message: `OTP sent to your ${method}`, identifier: value });
+    res.json({ message: `OTP sent to your ${method}`, identifier: value, OTP: otp });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ message: 'A signup with these details is already in progress, please check for the OTP' });

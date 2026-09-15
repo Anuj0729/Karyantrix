@@ -9,10 +9,12 @@ import OtpBoxInput from '../../components/auth/OtpBoxInput';
 import SocialAuthRow from '../../components/auth/SocialAuthRow';
 import Button from '../../components/ui/Button';
 import { Field, TextInput } from '../../components/ui/Field';
+import Modal from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 
 const RESEND_COOLDOWN_SECONDS = 45;
+const MAX_PASSWORD_ATTEMPTS = 5;
 
 const LOGIN_FEATURES = [
   { icon: <ShieldCheck size={18} aria-hidden="true" />, title: 'Secure & Private', desc: 'Your data is always protected' },
@@ -46,6 +48,8 @@ function LoginForm() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [showOtpSuggestion, setShowOtpSuggestion] = useState(false);
 
   const cooldownTimer = useRef(null);
 
@@ -89,9 +93,18 @@ function LoginForm() {
     setLoading(true);
     try {
       const user = await loginWithPassword(identifier, password);
+      setFailedAttempts(0);
       await goToDashboard(user);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed, please try again');
+      setFailedAttempts((prev) => {
+        const next = prev + 1;
+        if (next >= MAX_PASSWORD_ATTEMPTS) {
+          setShowOtpSuggestion(true);
+          return 0;
+        }
+        return next;
+      });
     } finally {
       setLoading(false);
     }
@@ -146,6 +159,12 @@ function LoginForm() {
     setOtpSent(false);
     setOtp('');
     setCooldown(0);
+    setFailedAttempts(0);
+  };
+
+  const switchToOtpFromSuggestion = () => {
+    setShowOtpSuggestion(false);
+    switchMode('otp');
   };
 
   const showingOtpScreen = mode === 'otp' && otpSent;
@@ -259,27 +278,6 @@ function LoginForm() {
             <p className="mt-1 text-sm text-ink-500">Enter your details to access your account</p>
           </div>
 
-          <div className="mb-5 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => switchMode('password')}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                mode === 'password' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600 hover:bg-ink-50'
-              }`}
-            >
-              Password
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMode('otp')}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                mode === 'otp' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600 hover:bg-ink-50'
-              }`}
-            >
-              OTP
-            </button>
-          </div>
-
           {mode === 'password' ? (
             <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
               <Field label="Email Address">
@@ -331,6 +329,17 @@ function LoginForm() {
               <Button type="submit" fullWidth loading={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
+
+              <p className="text-center text-sm text-ink-500">
+                If you don&apos;t want to login with password then, you will try to login with{' '}
+                <button
+                  type="button"
+                  onClick={() => switchMode('otp')}
+                  className="font-medium text-brand-600 hover:underline"
+                >
+                  OTP
+                </button>
+              </p>
             </form>
           ) : (
             <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-4">
@@ -355,6 +364,17 @@ function LoginForm() {
               <Button type="button" fullWidth loading={sendingOtp} onClick={handleSendOtp} disabled={!identifier}>
                 {sendingOtp ? 'Sending OTP...' : 'Send OTP'}
               </Button>
+
+              <p className="text-center text-sm text-ink-500">
+                Prefer password?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchMode('password')}
+                  className="font-medium text-brand-600 hover:underline"
+                >
+                  Use password instead
+                </button>
+              </p>
             </form>
           )}
 
@@ -367,6 +387,30 @@ function LoginForm() {
           <SocialAuthRow onGoogleCredential={handleGoogleCredential} onGoogleError={(err) => setError(err.message)} disabled={googleLoading} />
         </div>
       )}
+
+      <Modal isOpen={showOtpSuggestion} onClose={() => setShowOtpSuggestion(false)} size="sm">
+        <div className="p-6 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-100">
+            <ShieldCheck size={26} className="text-brand-600" aria-hidden="true" />
+          </div>
+          <h2 className="font-display text-lg font-bold text-ink-900">Having trouble signing in?</h2>
+          <p className="mt-2 text-sm text-ink-500">
+            If you don&apos;t want to login with password then, you will try to login with OTP.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button type="button" fullWidth onClick={switchToOtpFromSuggestion}>
+              Login with OTP
+            </Button>
+            <button
+              type="button"
+              onClick={() => setShowOtpSuggestion(false)}
+              className="text-sm font-medium text-ink-500 hover:text-ink-700"
+            >
+              Try password again
+            </button>
+          </div>
+        </div>
+      </Modal>
     </AuthShell>
   );
 }
