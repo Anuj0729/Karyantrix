@@ -13,6 +13,12 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 
 const { connectDB } = require('./config/db');
+const {
+  UPLOAD_ROOT,
+  LEGACY_UPLOAD_ROOT,
+  ensureDir,
+  EXPLICIT_MIME_BY_EXT,
+} = require('./config/storage');
 require('./models');
 const { initSocket } = require('./sockets/socketHandler');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -69,7 +75,25 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(mongoSanitize());
 app.use(hpp());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const staticMediaOptions = {
+  maxAge: '30d',
+  immutable: true,
+  etag: true,
+  lastModified: true,
+  fallthrough: true,
+  setHeaders: (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (EXPLICIT_MIME_BY_EXT[ext]) res.type(EXPLICIT_MIME_BY_EXT[ext]);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Accept-Ranges', 'bytes');
+  },
+};
+
+app.use('/uploads', express.static(ensureDir(UPLOAD_ROOT), staticMediaOptions));
+if (UPLOAD_ROOT !== LEGACY_UPLOAD_ROOT) {
+  app.use('/uploads', express.static(LEGACY_UPLOAD_ROOT, staticMediaOptions));
+}
 app.use(cookieParser());
 app.use('/api', apiLimiter);
 

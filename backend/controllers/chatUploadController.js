@@ -2,15 +2,23 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const { UploadSession } = require('../models');
+const { chatMediaDir, chatTmpChunkDir } = require('../config/storage');
 
-const TMP_ROOT = path.join(__dirname, '..', 'uploads', 'tmp-chunks');
-const FINAL_DIR = path.join(__dirname, '..', 'uploads', 'chat-media');
-fs.mkdirSync(TMP_ROOT, { recursive: true });
-fs.mkdirSync(FINAL_DIR, { recursive: true });
+const TMP_ROOT = chatTmpChunkDir();
+const FINAL_DIR = chatMediaDir();
 
-const extFromFilename = (filename = '') => {
-  const ext = path.extname(filename).toLowerCase();
-  return ext || '';
+const ALLOWED_EXTS = {
+  image: ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.avif', '.heic', '.heif'],
+  video: ['.mp4', '.webm', '.mov', '.m4v', '.ogv'],
+  audio: ['.webm', '.m4a', '.mp3', '.wav', '.ogg', '.oga', '.opus', '.aac'],
+};
+
+const DEFAULT_EXT = { image: '.jpg', video: '.mp4', audio: '.webm' };
+
+const safeExtFor = (mediaType, filename = '') => {
+  const ext = path.extname(String(filename || '')).toLowerCase();
+  const allowed = ALLOWED_EXTS[mediaType] || [];
+  return allowed.includes(ext) ? ext : DEFAULT_EXT[mediaType] || '.bin';
 };
 
 const chunkPath = (uploadId, chunkIndex) => path.join(TMP_ROOT, uploadId, `chunk_${chunkIndex}`);
@@ -73,15 +81,18 @@ const uploadChatChunk = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid chunk_index for this upload session' });
     }
 
-    fs.writeFileSync(chunkPath(session.id, chunkIndexNum), chunkFile.buffer);
+    fs.mkdirSync(path.join(TMP_ROOT, session.id), { recursive: true });
+    await fs.promises.writeFile(chunkPath(session.id, chunkIndexNum), chunkFile.buffer);
 
-    if (!session.received_chunks.includes(chunkIndexNum)) {
-      session.received_chunks.push(chunkIndexNum);
-      await session.save();
-    }
+    const updated = await UploadSession.findByIdAndUpdate(
+      session.id,
+      { $addToSet: { received_chunks: chunkIndexNum } },
+      { new: true }
+    );
 
-    const progress = Math.round((session.received_chunks.length / session.total_chunks) * 100);
-    res.json({ success: true, data: { uploaded: session.received_chunks.length, total: session.total_chunks, progress } });
+    const received = updated?.received_chunks.length || 0;
+    const progress = Math.round((received / session.total_chunks) * 100);
+    res.json({ success: true, data: { uploaded: received, total: session.total_chunks, progress } });
   } catch (error) {
     next(error);
   }
@@ -103,21 +114,43 @@ const completeChatUpload = async (req, res, next) => {
       });
     }
 
-    const DEFAULT_EXT = { video: '.mp4', audio: '.webm', image: '.jpg' };
-    const ext = extFromFilename(session.filename) || DEFAULT_EXT[session.media_type] || '.jpg';
+    const ext = safeExtFor(session.media_type, session.filename);
     const finalName = `${session.id}${ext}`;
     const finalPath = path.join(FINAL_DIR, finalName);
 
-    const writeStream = fs.createWriteStream(finalPath);
-    for (let i = 0; i < session.total_chunks; i += 1) {
-      const buf = fs.readFileSync(chunkPath(session.id, i));
-      writeStream.write(buf);
-    }
-    writeStream.end();
+    fs.mkdirSync(FINAL_DIR, { recursive: true });
+
     await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
+      const writeStream = fs.createWriteStream(finalPath);
       writeStream.on('error', reject);
+      writeStream.on('finish', resolve);
+
+      let index = 0;
+      const writeNext = () => {
+        while (index < session.total_chunks) {
+          const current = chunkPath(session.id, index);
+          index += 1;
+          const buf = fs.readFileSync(current);
+          if (!writeStream.write(buf)) {
+            writeStream.once('drain', writeNext);
+            return;
+          }
+        }
+        writeStream.end();
+      };
+
+      try {
+        writeNext();
+      } catch (err) {
+        writeStream.destroy();
+        reject(err);
+      }
     });
+
+    const stats = await fs.promises.stat(finalPath).catch(() => null);
+    if (!stats || stats.size === 0) {
+      return res.status(500).json({ message: 'The upload could not be assembled, please try again' });
+    }
 
     fs.rmSync(session.temp_dir, { recursive: true, force: true });
 

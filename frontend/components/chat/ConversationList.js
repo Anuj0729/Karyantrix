@@ -6,15 +6,7 @@ import { MessageCircle, Search, UserRound, X } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { Skeleton } from '../ui/Skeleton';
 import { resolveMediaUrl } from './mediaUrl';
-
-const formatWhen = (iso) => {
-  if (!iso) return '';
-  const date = new Date(iso);
-  const now = new Date();
-  const sameDay = date.toDateString() === now.toDateString();
-  if (sameDay) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return date.toLocaleDateString([], { day: '2-digit', month: 'short' });
-};
+import { formatConversationWhen, formatFullTimestamp } from '../../lib/chatDate';
 
 export default function ConversationList({ activeId, getHref }) {
   const { conversations, conversationsLoaded, selectConversation } = useChat();
@@ -117,8 +109,11 @@ export default function ConversationList({ activeId, getHref }) {
                     <p className={`truncate text-xs font-semibold ${isActive ? 'text-brand-950 font-bold' : 'text-ink-900'}`}>
                       {c.other_participant?.name}
                     </p>
-                    <span className={`shrink-0 text-[10px] ${isActive ? 'text-brand-700 font-medium' : 'text-ink-400'}`}>
-                      {formatWhen(c.last_message_at)}
+                    <span
+                      title={formatFullTimestamp(c.last_message_at)}
+                      className={`shrink-0 text-[10px] ${isActive ? 'text-brand-700 font-medium' : 'text-ink-400'}`}
+                    >
+                      {formatConversationWhen(c.last_message_at)}
                     </span>
                   </div>
                   <p className={`truncate text-[11px] mt-0.5 ${c.unread_count > 0 ? 'font-semibold text-ink-900' : 'text-ink-500'}`}>

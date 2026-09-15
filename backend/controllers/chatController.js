@@ -131,7 +131,7 @@ const getMessages = async (req, res, next) => {
 const sendMessage = async (req, res, next) => {
   try {
     const conversation = await loadOwnedConversation(req);
-    const { type = 'text', text, media_id, is_voice_note } = req.body;
+    const { type = 'text', text, media_id, is_voice_note, client_id } = req.body;
 
     if (!['text', 'image', 'video', 'audio'].includes(type)) {
       return res.status(400).json({ message: 'type must be text, image, video or audio' });
@@ -174,26 +174,31 @@ const sendMessage = async (req, res, next) => {
     const otherParticipantId = getOtherParticipantId(conversation, req.user.id);
     const isCustomerSender = conversation.customer.toString() === req.user.id;
 
-    conversation.last_message_preview = buildPreview(message);
-    conversation.last_message_type = message.type;
-    conversation.last_message_at = message.createdAt;
-    conversation.last_message_sender = req.user.id;
-    if (isCustomerSender) {
-      conversation.provider_unread_count += 1;
-    } else {
-      conversation.customer_unread_count += 1;
-    }
-    await conversation.save();
-
-    const payload = { conversation_id: conversation.id, message };
+    const payload = { conversation_id: conversation.id, client_id: client_id || null, message };
 
     emitToUser(otherParticipantId, 'chat:message', payload);
     emitToUser(req.user.id, 'chat:message', payload);
 
-    notifyNewMessage(otherParticipantId, req.user.name, message).catch(() => {});
+    res.status(201).json({ success: true, message, client_id: client_id || null });
 
-    res.status(201).json({ success: true, message });
+    const unreadField = isCustomerSender ? 'provider_unread_count' : 'customer_unread_count';
+    Conversation.updateOne(
+      { _id: conversation.id },
+      {
+        $set: {
+          last_message_preview: buildPreview(message),
+          last_message_type: message.type,
+          last_message_at: message.createdAt,
+          last_message_sender: req.user.id,
+        },
+     
+        $inc: { [unreadField]: 1 },
+      }
+    ).catch(() => {});
+
+    notifyNewMessage(otherParticipantId, req.user.name, message).catch(() => {});
   } catch (error) {
+    if (res.headersSent) return;
     next(error);
   }
 };
@@ -211,9 +216,10 @@ const loadOwnedMessage = async (conversation, messageId) => {
 const refreshPreviewIfLatest = async (conversation, message) => {
   const latest = await Message.findOne({ conversation: conversation.id }).sort({ createdAt: -1 });
   if (latest && latest.id === message.id) {
-    conversation.last_message_preview = buildPreview(message);
-    conversation.last_message_type = message.type;
-    await conversation.save();
+    await Conversation.updateOne(
+      { _id: conversation.id },
+      { $set: { last_message_preview: buildPreview(message), last_message_type: message.type } }
+    );
   }
 };
 
@@ -240,8 +246,6 @@ const editMessage = async (req, res, next) => {
     message.edited_at = new Date();
     await message.save();
 
-    await refreshPreviewIfLatest(conversation, message);
-
     const otherParticipantId = getOtherParticipantId(conversation, req.user.id);
     const payload = { conversation_id: conversation.id, message };
 
@@ -249,7 +253,10 @@ const editMessage = async (req, res, next) => {
     emitToUser(req.user.id, 'chat:message_edited', payload);
 
     res.json({ success: true, message });
+
+    refreshPreviewIfLatest(conversation, message).catch(() => {});
   } catch (error) {
+    if (res.headersSent) return;
     next(error);
   }
 };
@@ -277,6 +284,8 @@ const deleteMessage = async (req, res, next) => {
           .json({ message: 'Delete for everyone is only available within 1 hour of sending' });
       }
 
+      const removedUploadId = message.media?.upload_id || null;
+
       message.is_deleted_for_everyone = true;
       message.deleted_at = new Date();
       message.text = null;
@@ -289,6 +298,10 @@ const deleteMessage = async (req, res, next) => {
       const payload = { conversation_id: conversation.id, message };
       emitToUser(otherParticipantId, 'chat:message_deleted', payload);
       emitToUser(req.user.id, 'chat:message_deleted', payload);
+
+      if (removedUploadId) {
+        UploadSession.updateOne({ _id: removedUploadId }, { $set: { consumed: true } }).catch(() => {});
+      }
     } else {
       const alreadyDeletedForMe = message.deleted_for.some((id) => id.toString() === req.user.id);
       if (!alreadyDeletedForMe) {
@@ -313,21 +326,23 @@ const markConversationRead = async (req, res, next) => {
   try {
     const conversation = await loadOwnedConversation(req);
     const isCustomer = conversation.customer.toString() === req.user.id;
-
-    if (isCustomer) conversation.customer_unread_count = 0;
-    else conversation.provider_unread_count = 0;
-    await conversation.save();
-
-    await Message.updateMany(
-      { conversation: conversation.id, sender: { $ne: req.user.id }, is_read: false },
-      { is_read: true }
-    );
+    const unreadField = isCustomer ? 'customer_unread_count' : 'provider_unread_count';
 
     const otherParticipantId = getOtherParticipantId(conversation, req.user.id);
-    emitToUser(otherParticipantId, 'chat:read', { conversation_id: conversation.id, read_by: req.user.id });
 
     res.json({ success: true });
+
+    await Promise.all([
+      Conversation.updateOne({ _id: conversation.id }, { $set: { [unreadField]: 0 } }),
+      Message.updateMany(
+        { conversation: conversation.id, sender: { $ne: req.user.id }, is_read: false },
+        { $set: { is_read: true } }
+      ),
+    ]).catch(() => {});
+
+    emitToUser(otherParticipantId, 'chat:read', { conversation_id: conversation.id, read_by: req.user.id });
   } catch (error) {
+    if (res.headersSent) return;
     next(error);
   }
 };

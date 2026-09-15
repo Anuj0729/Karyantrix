@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Flag, ImagePlus, Mic, Send, Trash2, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -8,12 +8,14 @@ import { useChat } from '../../context/ChatContext';
 import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
 import MessageBubble from './MessageBubble';
+import DateDivider from './DateDivider';
 import { resolveMediaUrl } from './mediaUrl';
+import { shouldShowDayDivider } from '../../lib/chatDate';
 import dynamic from 'next/dynamic';
 const ReportModal = dynamic(() => import('../ReportModal'));
 
-const TYPING_IDLE_MS = 2000;
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const NEAR_BOTTOM_PX = 140;
 
 const pickRecorderMimeType = () => {
   if (typeof MediaRecorder === 'undefined') return null;
@@ -36,6 +38,8 @@ export default function ChatThread({ conversationId, backHref }) {
     loadMessages,
     sendText,
     sendMedia,
+    retryMessage,
+    discardMessage,
     editMessage,
     deleteMessage,
     setTyping,
@@ -45,17 +49,17 @@ export default function ChatThread({ conversationId, backHref }) {
   const { toast } = useToast();
 
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const [pendingUpload, setPendingUpload] = useState(null);
+  const [uploadsInFlight, setUploadsInFlight] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const recordStreamRef = useRef(null);
   const recordTimerRef = useRef(null);
+  const firstItemIdRef = useRef(null);
+  const stickToBottomRef = useRef(true);
 
   const discardRecordingRef = useRef(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -63,44 +67,64 @@ export default function ChatThread({ conversationId, backHref }) {
   const conversation = conversations.find((c) => c.id === conversationId);
   const thread = messagesByConversation[conversationId] || { items: [], hasMore: false, loading: false };
   const isOtherTyping = !!typingByConversation[conversationId];
+  const isUploading = uploadsInFlight > 0;
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+  };
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [thread.items.length, isOtherTyping]);
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const newFirstId = thread.items[0]?.id || null;
+    const prependedOlder = firstItemIdRef.current && newFirstId && firstItemIdRef.current !== newFirstId;
+    firstItemIdRef.current = newFirstId;
+
+    if (prependedOlder) return;
+    if (!stickToBottomRef.current) return;
+
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [thread.items, isOtherTyping]);
 
   const handleLoadOlder = () => {
     if (!thread.items.length || thread.loading) return;
+    stickToBottomRef.current = false;
     loadMessages(conversationId, { before: thread.items[0].createdAt });
-  };
-
-  const stopTyping = () => {
-    clearTimeout(typingTimeoutRef.current);
-    setTyping(conversationId, false);
   };
 
   const handleTextChange = (e) => {
     setText(e.target.value);
-    setTyping(conversationId, true);
-    clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(stopTyping, TYPING_IDLE_MS);
+    setTyping(conversationId, e.target.value.length > 0);
   };
 
-  const handleSend = async (e) => {
+  const stopTyping = () => setTyping(conversationId, false);
+
+  const handleSend = (e) => {
     e.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
-    setSending(true);
+    if (!trimmed) return;
+
     setText('');
     stopTyping();
-    try {
-      await sendText(conversationId, trimmed);
-    } catch (err) {
+    stickToBottomRef.current = true;
+
+    sendText(conversationId, trimmed).catch((err) => {
       toast(err.response?.data?.message || 'Message could not be sent', { type: 'error' });
-      setText(trimmed);
-    } finally {
-      setSending(false);
-    }
+    });
   };
+
+  const handleRetry = (matchId) => {
+    retryMessage(conversationId, matchId).catch((err) => {
+      toast(err.isMissingFile ? err.message : err.response?.data?.message || 'Still could not send', {
+        type: 'error',
+      });
+    });
+  };
+
+  const handleDiscard = (matchId) => discardMessage(conversationId, matchId);
 
   const handleEditMessage = async (messageId, newText) => {
     try {
@@ -119,6 +143,7 @@ export default function ChatThread({ conversationId, backHref }) {
   };
 
   const handlePickFile = () => fileInputRef.current?.click();
+
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -136,18 +161,14 @@ export default function ChatThread({ conversationId, backHref }) {
       return;
     }
 
-    const mediaType = isVideo ? 'video' : isAudio ? 'audio' : 'image';
-    setPendingUpload({ progress: 0, mediaType });
+    stickToBottomRef.current = true;
+    setUploadsInFlight((n) => n + 1);
     try {
-
-      await sendMedia(conversationId, file, {
-        isVoiceNote: false,
-        onProgress: (progress) => setPendingUpload((prev) => (prev ? { ...prev, progress } : prev)),
-      });
+      await sendMedia(conversationId, file, { isVoiceNote: false });
     } catch (err) {
       toast(err.response?.data?.message || 'Attachment could not be sent', { type: 'error' });
     } finally {
-      setPendingUpload(null);
+      setUploadsInFlight((n) => Math.max(0, n - 1));
     }
   };
 
@@ -165,7 +186,7 @@ export default function ChatThread({ conversationId, backHref }) {
   useEffect(() => teardownRecording, []);
 
   const startRecording = async () => {
-    if (isRecording || pendingUpload) return;
+    if (isRecording) return;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       toast('Voice recording is not supported in this browser', { type: 'error' });
       return;
@@ -205,16 +226,14 @@ export default function ChatThread({ conversationId, backHref }) {
           return;
         }
 
-        setPendingUpload({ progress: 0, mediaType: 'audio' });
+        stickToBottomRef.current = true;
+        setUploadsInFlight((n) => n + 1);
         try {
-          await sendMedia(conversationId, file, {
-            isVoiceNote: true,
-            onProgress: (progress) => setPendingUpload((prev) => (prev ? { ...prev, progress } : prev)),
-          });
+          await sendMedia(conversationId, file, { isVoiceNote: true });
         } catch (err) {
           toast(err.response?.data?.message || 'Voice message could not be sent', { type: 'error' });
         } finally {
-          setPendingUpload(null);
+          setUploadsInFlight((n) => Math.max(0, n - 1));
         }
       };
 
@@ -320,7 +339,11 @@ export default function ChatThread({ conversationId, backHref }) {
         context={{ conversation_id: conversationId }}
       />
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50/60 p-4">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 space-y-3 overflow-y-auto bg-slate-50/60 p-4"
+      >
         {thread.hasMore && (
           <div className="flex justify-center pb-1">
             <button
@@ -346,29 +369,21 @@ export default function ChatThread({ conversationId, backHref }) {
           </div>
         )}
 
-        {thread.items.map((m) => (
-          <MessageBubble
-            key={m.id}
-            message={m}
-            isOwn={m.sender === user?.id}
-            onEdit={handleEditMessage}
-            onDelete={handleDeleteMessage}
-          />
+        {thread.items.map((m, index) => (
+          <Fragment key={m.id}>
+            {shouldShowDayDivider(m.createdAt, thread.items[index - 1]?.createdAt) && (
+              <DateDivider date={m.createdAt} />
+            )}
+            <MessageBubble
+              message={m}
+              isOwn={m.sender === user?.id}
+              onEdit={handleEditMessage}
+              onDelete={handleDeleteMessage}
+              onRetry={handleRetry}
+              onDiscard={handleDiscard}
+            />
+          </Fragment>
         ))}
-
-        {pendingUpload && (
-          <div className="flex justify-end">
-            <div className="flex max-w-[75%] items-center gap-2.5 rounded-2xl rounded-br-sm bg-brand-600 px-4 py-2.5 text-white shadow-md">
-              <Spinner size={14} className="text-white" />
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold capitalize">
-                  Uploading {pendingUpload.mediaType}…
-                </span>
-                <span className="text-[10px] text-white/80">{pendingUpload.progress}% complete</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {isRecording ? (
@@ -414,12 +429,11 @@ export default function ChatThread({ conversationId, backHref }) {
           <button
             type="button"
             onClick={handlePickFile}
-            disabled={!!pendingUpload}
             className="shrink-0 rounded-xl p-2 text-ink-500 hover:bg-ink-100 hover:text-ink-700 disabled:opacity-40 transition-colors"
             title="Attach photo, video or audio"
             aria-label="Attach a photo, video or audio file"
           >
-            <ImagePlus size={20} aria-hidden="true" />
+            {isUploading ? <Spinner size={20} className="text-brand-600" /> : <ImagePlus size={20} aria-hidden="true" />}
           </button>
           <input
             type="text"
@@ -432,18 +446,16 @@ export default function ChatThread({ conversationId, backHref }) {
           {text.trim() ? (
             <button
               type="submit"
-              disabled={sending}
-              className="shrink-0 rounded-xl bg-gradient-to-r from-brand-600 to-accent-600 p-2.5 text-white shadow-xs transition-all hover:from-brand-700 hover:to-accent-700 active:scale-95 disabled:opacity-50"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-brand-600 to-accent-600 p-2.5 text-white shadow-xs transition-all hover:from-brand-700 hover:to-accent-700 active:scale-95"
               aria-label="Send message"
             >
-              {sending ? <Spinner size={16} className="text-white" /> : <Send size={16} aria-hidden="true" />}
+              <Send size={16} aria-hidden="true" />
             </button>
           ) : (
             <button
               type="button"
               onClick={startRecording}
-              disabled={!!pendingUpload}
-              className="shrink-0 rounded-xl bg-ink-100 p-2.5 text-ink-700 transition-all hover:bg-brand-50 hover:text-brand-600 active:scale-95 disabled:opacity-40"
+              className="shrink-0 rounded-xl bg-ink-100 p-2.5 text-ink-700 transition-all hover:bg-brand-50 hover:text-brand-600 active:scale-95"
               title="Record voice note"
               aria-label="Record a voice message"
             >

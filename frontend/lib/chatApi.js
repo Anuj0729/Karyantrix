@@ -1,11 +1,7 @@
 import api from './api';
 
 export const startConversation = async (providerId) => {
-  const formData = new FormData();
-  formData.append('provider_id', providerId);
-  const { data } = await api.post('/chats/start', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.post('/chats/start', { provider_id: providerId });
   return data.conversation;
 };
 
@@ -21,34 +17,30 @@ export const getMessages = async (conversationId, { before } = {}) => {
   return data;
 };
 
-export const sendTextMessage = async (conversationId, text) => {
-  const formData = new FormData();
-  formData.append('type', 'text');
-  formData.append('text', text);
-  const { data } = await api.post(`/chats/${conversationId}/messages`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+export const sendTextMessage = async (conversationId, text, { clientId } = {}) => {
+  const { data } = await api.post(`/chats/${conversationId}/messages`, {
+    type: 'text',
+    text,
+    client_id: clientId,
   });
   return data.message;
 };
 
-export const sendMediaMessage = async (conversationId, { mediaId, mediaType, isVoiceNote }) => {
-  const formData = new FormData();
-  formData.append('type', mediaType);
-  formData.append('media_id', mediaId);
-
-  if (mediaType === 'audio') formData.append('is_voice_note', isVoiceNote ? 'true' : 'false');
-  const { data } = await api.post(`/chats/${conversationId}/messages`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+export const sendMediaMessage = async (
+  conversationId,
+  { mediaId, mediaType, isVoiceNote, clientId }
+) => {
+  const { data } = await api.post(`/chats/${conversationId}/messages`, {
+    type: mediaType,
+    media_id: mediaId,
+    is_voice_note: mediaType === 'audio' ? !!isVoiceNote : undefined,
+    client_id: clientId,
   });
   return data.message;
 };
 
 export const editMessage = async (conversationId, messageId, text) => {
-  const formData = new FormData();
-  formData.append('text', text);
-  const { data } = await api.patch(`/chats/${conversationId}/messages/${messageId}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const { data } = await api.patch(`/chats/${conversationId}/messages/${messageId}`, { text });
   return data.message;
 };
 
