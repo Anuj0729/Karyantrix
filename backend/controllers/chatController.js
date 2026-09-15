@@ -191,7 +191,7 @@ const sendMessage = async (req, res, next) => {
           last_message_at: message.createdAt,
           last_message_sender: req.user.id,
         },
-     
+        
         $inc: { [unreadField]: 1 },
       }
     ).catch(() => {});
@@ -295,10 +295,17 @@ const deleteMessage = async (req, res, next) => {
       await refreshPreviewIfLatest(conversation, message);
 
       const otherParticipantId = getOtherParticipantId(conversation, req.user.id);
-      const payload = { conversation_id: conversation.id, message };
+
+      const payload = {
+        conversation_id: conversation.id,
+        message_id: message.id,
+        scope: 'everyone',
+        message,
+      };
       emitToUser(otherParticipantId, 'chat:message_deleted', payload);
       emitToUser(req.user.id, 'chat:message_deleted', payload);
 
+      // Release the orphaned upload record so the media file can be reclaimed.
       if (removedUploadId) {
         UploadSession.updateOne({ _id: removedUploadId }, { $set: { consumed: true } }).catch(() => {});
       }

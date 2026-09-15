@@ -226,28 +226,46 @@ export function ChatProvider({ children }) {
     };
 
     const onChatMessageDeleted = ({ conversation_id: conversationId, message_id: messageId, scope, message }) => {
+      const targetId = messageId || message?.id || null;
+      const effectiveScope = scope || (message ? 'everyone' : 'me');
+      if (!targetId) return;
+
       setMessagesByConversation((prev) => {
         const thread = prev[conversationId];
         if (!thread) return prev;
-        if (scope === 'everyone' && message) {
+
+        if (effectiveScope === 'everyone') {
           return {
             ...prev,
-            [conversationId]: { ...thread, items: thread.items.map((m) => (m.id === message.id ? message : m)) },
+            [conversationId]: {
+              ...thread,
+              items: thread.items.map((m) =>
+                m.id === targetId
+                  ? message || {
+                      ...m,
+                      is_deleted_for_everyone: true,
+                      text: null,
+                      media: { url: null, media_type: null },
+                    }
+                  : m
+              ),
+            },
           };
         }
+
         return {
           ...prev,
-          [conversationId]: { ...thread, items: thread.items.filter((m) => m.id !== messageId) },
+          [conversationId]: { ...thread, items: thread.items.filter((m) => m.id !== targetId) },
         };
       });
 
-      if (scope === 'everyone' && message) {
+      if (effectiveScope === 'everyone') {
         setConversations((prev) =>
-          prev.map((c) =>
-            c.id === conversationId && c.last_message_at === message.createdAt
-              ? { ...c, last_message_preview: 'This message was deleted' }
-              : c
-          )
+          prev.map((c) => {
+            if (c.id !== conversationId) return c;
+            if (message?.createdAt && c.last_message_at !== message.createdAt) return c;
+            return { ...c, last_message_preview: 'This message was deleted' };
+          })
         );
       }
     };
