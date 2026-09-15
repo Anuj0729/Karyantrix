@@ -1,40 +1,22 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-const SMTP_SECURE = SMTP_PORT === 465;
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_SECURE,
-  requireTLS: !SMTP_SECURE,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
-  pool: true,
-  maxConnections: 3,
-  maxMessages: 50,
-});
-
-if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+if (!process.env.SENDGRID_API_KEY) {
   console.warn(
-    '[email] SMTP_HOST / SMTP_USER / SMTP_PASSWORD is not fully set. ' +
-    'OTP emails will fail until these env vars are configured on the host (e.g. Render dashboard).'
+    '[email] SENDGRID_API_KEY is not set. OTP emails will fail until this env var is configured on the host (e.g. Render dashboard).'
   );
+} else {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-const sendWithRetry = async (mailOptions, attempts = 2) => {
+const sendWithRetry = async (msg, attempts = 2) => {
   let lastErr;
   for (let i = 1; i <= attempts; i++) {
     try {
-      return await transporter.sendMail(mailOptions);
+      return await sgMail.send(msg);
     } catch (err) {
       lastErr = err;
-      console.error(`[email] sendMail attempt ${i}/${attempts} failed:`, err.code || err.message);
+      const details = err.response?.body?.errors || err.message;
+      console.error(`[email] sendMail attempt ${i}/${attempts} failed:`, details);
       if (i < attempts) {
         await new Promise((res) => setTimeout(res, 1000 * i));
       }
@@ -44,9 +26,12 @@ const sendWithRetry = async (mailOptions, attempts = 2) => {
 };
 
 const sendOTPEmail = async (toEmail, otp) => {
-  const mailOptions = {
-    from: `"Karyantrix" <${process.env.SMTP_SENDER_USER}>`,
+  const msg = {
     to: toEmail,
+    from: {
+      email: process.env.SMTP_SENDER_USER,
+      name: 'Karyantrix',
+    },
     subject: "Your Karyantrix Verification Code",
     text: `
 Your Karyantrix verification code is: ${otp}
@@ -260,7 +245,7 @@ If you did not request this code, please ignore this email.
     `.trim(),
   };
 
-  return sendWithRetry(mailOptions);
+  return sendWithRetry(msg);
 };
 
 module.exports = { sendOTPEmail };
