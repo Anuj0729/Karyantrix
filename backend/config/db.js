@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
+const dns = require('dns');
+
+dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 mongoose.set('autoIndex', process.env.MONGO_AUTO_INDEX
   ? process.env.MONGO_AUTO_INDEX === 'true'

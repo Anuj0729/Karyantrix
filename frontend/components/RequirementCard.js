@@ -14,7 +14,7 @@ import {
     X,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import Badge from './ui/Badge';
@@ -173,6 +173,15 @@ export default function RequirementCard({ requirement, onUpdated }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descClamped, setDescClamped] = useState(false);
+  const descRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    setDescClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [requirement.description]);
 
   const isOwner = user?.role === 'customer' && customer.id === user?.id;
   const canEditOrDelete = isOwner && requirement.status === 'open';
@@ -277,7 +286,20 @@ export default function RequirementCard({ requirement, onUpdated }) {
           )}
         </div>
 
-        <p className="text-sm text-ink-700 leading-relaxed line-clamp-3">{requirement.description}</p>
+        <div>
+          <p ref={descRef} className={`text-sm text-ink-700 leading-relaxed ${descExpanded ? '' : 'line-clamp-3'}`}>
+            {requirement.description}
+          </p>
+          {descClamped && (
+            <button
+              type="button"
+              onClick={() => setDescExpanded((v) => !v)}
+              className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline"
+            >
+              {descExpanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
+        </div>
 
         {requirement.media?.length > 0 && (
           <div className={`grid gap-2 pt-1 ${requirement.media.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
