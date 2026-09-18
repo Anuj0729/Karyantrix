@@ -195,6 +195,7 @@ async function seed() {
             aadhar_front: placeholderImg(`kyc-front-${i}`, 400, 250),
             aadhar_back: placeholderImg(`kyc-back-${i}`, 400, 250),
             passbook_front: placeholderImg(`kyc-passbook-${i}`, 400, 250),
+            live_photo: placeholderImg(`kyc-live-${i}`, 400, 400),
           }
         : {},
       verification_status: isApproved ? (i === 3 ? 'pending' : 'verified') : 'unverified',
@@ -512,7 +513,7 @@ async function seed() {
     reporter_role: 'provider',
     reported_user: req2.customer,
     reported_role: 'customer',
-    reason: 'abusive_language',
+    reason: 'abusive_behavior',
     description: 'Customer was rude and threatening over chat.',
     context: { conversation: conversation1._id },
     status: 'under_review',

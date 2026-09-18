@@ -9,10 +9,14 @@ const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
 const http = require('http');
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 
 const { connectDB } = require('./config/db');
+const { connectRedis, disconnectRedis } = require('./config/redis');
+const { startOtpWorker, stopOtpWorker } = require('./jobs/otpWorker');
+
 const {
   UPLOAD_ROOT,
   LEGACY_UPLOAD_ROOT,
@@ -133,10 +137,31 @@ const start = async () => {
   console.log('Starting server.......')
   await connectDB();
 
+  const redisClients = await connectRedis();
+  if (redisClients) {
+    io.adapter(createAdapter(redisClients.pubClient, redisClients.subClient));
+    console.log('Socket.IO Redis adapter attached');
+  }
+
+  if ((process.env.RUN_WORKER_IN_PROCESS || 'true').toLowerCase() !== 'false') {
+    startOtpWorker();
+  }
+
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
 };
+
+const shutdown = async (signal) => {
+  console.log(`\n${signal} received: closing server gracefully...`);
+  server.close(() => console.log('HTTP server closed'));
+  await stopOtpWorker();
+  await disconnectRedis();
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 if (require.main === module) {
   start();

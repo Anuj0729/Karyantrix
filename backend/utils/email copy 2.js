@@ -1,25 +1,20 @@
-const nodemailer = require('nodemailer');
+// utils/sendgrid.js
+const sgMail = require('@sendgrid/mail');
+const dotenv = require('dotenv');
+dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  connectionTimeout: 10000, // 10s
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
-const sendOTPEmail = async (toEmail, otp) => {
-  const mailOptions = {
-    from: `"Karyantrix" <${process.env.SMTP_SENDER_USER}>`,
-    to: toEmail,
+const sendOTPEmail = (email, otp) => {
+  const msg = {
+    to: email,
+    from: {
+      email: `<${process.env.SMTP_SENDER_USER}>`,
+      name: "Karyantrix",
+    },
     subject: "Your Karyantrix Verification Code",
 
-    text: `
+     text: `
 Your Karyantrix verification code is: ${otp}
 
 This verification code will expire in 5 minutes.
@@ -28,7 +23,7 @@ If you did not request this code, please ignore this email.
 
 © ${new Date().getFullYear()} Karyantrix. All rights reserved.
     `.trim(),
-
+    
     html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -263,8 +258,15 @@ If you did not request this code, please ignore this email.
     `.trim(),
   };
 
-  return transporter.sendMail(mailOptions);
-
+  return sgMail
+    .send(msg)
+    .then((response) => {
+      console.log('OTP has been sended into your email')
+      console.log("Status Code : ",response[0].statusCode)
+      console.log("Header : ",response[0].headers)
+    })
+    .catch((error) => console.error('Error sending email:', error));
 };
+
 
 module.exports = { sendOTPEmail };

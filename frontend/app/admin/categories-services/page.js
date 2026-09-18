@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Plus, Power, X } from 'lucide-react';
+import { AlertTriangle, Pencil, Plus, Power, X } from 'lucide-react';
 import api from '../../../lib/api';
 import BackButton from '../../../components/BackButton';
 import { useToast } from '../../../components/ui/Toast';
@@ -17,10 +17,20 @@ const slugify = (text) => text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').
 
 const EMPTY_FORM = { name: '', slug: '', description: '', icon: '' };
 
-function CreateCategoryModal({ open, onClose, onCreated }) {
+function CategoryFormModal({ open, onClose, onSaved, category }) {
   const { toast } = useToast();
+  const isEdit = Boolean(category);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(
+      category
+        ? { name: category.name || '', slug: category.slug || '', description: category.description || '', icon: category.icon || '' }
+        : EMPTY_FORM
+    );
+  }, [open, category]);
 
   const handleClose = () => {
     setForm(EMPTY_FORM);
@@ -31,12 +41,17 @@ function CreateCategoryModal({ open, onClose, onCreated }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post('/admin/categories', form);
-      toast('Category created', { type: 'success' });
+      if (isEdit) {
+        await api.put(`/admin/categories/${category.id}`, form);
+        toast('Category updated', { type: 'success' });
+      } else {
+        await api.post('/admin/categories', form);
+        toast('Category created', { type: 'success' });
+      }
       handleClose();
-      onCreated();
+      onSaved();
     } catch (err) {
-      toast(err.response?.data?.message || 'Could not create category', { type: 'error' });
+      toast(err.response?.data?.message || `Could not ${isEdit ? 'update' : 'create'} category`, { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -62,7 +77,7 @@ function CreateCategoryModal({ open, onClose, onCreated }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold text-ink-900">Create category</h2>
+            <h2 className="font-display text-lg font-semibold text-ink-900">{isEdit ? 'Edit category' : 'Create category'}</h2>
             <button type="button" onClick={handleClose} aria-label="Close" className="rounded-lg p-1 text-ink-400 hover:bg-ink-100">
               <X size={18} aria-hidden="true" />
             </button>
@@ -90,7 +105,7 @@ function CreateCategoryModal({ open, onClose, onCreated }) {
               )}
             </Field>
             <Button type="submit" loading={saving} fullWidth>
-              Create
+              {isEdit ? 'Save changes' : 'Create'}
             </Button>
           </form>
         </motion.div>
@@ -149,7 +164,7 @@ function ToggleCategoryModal({ category, onClose, onConfirm, saving }) {
   );
 }
 
-function CategoryTile({ category, serviceCount, onToggle }) {
+function CategoryTile({ category, serviceCount, onToggle, onEdit }) {
   const Icon = getCategoryIcon(category.icon);
   return (
     <Card
@@ -163,6 +178,14 @@ function CategoryTile({ category, serviceCount, onToggle }) {
           <Icon size={22} aria-hidden="true" />
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onEdit(category)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-400 hover:bg-ink-100 hover:text-ink-700 transition-colors"
+            aria-label={`Edit ${category.name}`}
+          >
+            <Pencil size={13} aria-hidden="true" />
+          </button>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
               category.is_active
@@ -216,6 +239,7 @@ function AdminCategoriesServicesContent() {
   const [serviceCounts, setServiceCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [categoryToToggle, setCategoryToToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
 
@@ -286,15 +310,27 @@ function AdminCategoriesServicesContent() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((c) => (
-            <CategoryTile key={c.id} category={c} serviceCount={serviceCounts[c.id] || 0} onToggle={setCategoryToToggle} />
+            <CategoryTile
+              key={c.id}
+              category={c}
+              serviceCount={serviceCounts[c.id] || 0}
+              onToggle={setCategoryToToggle}
+              onEdit={setCategoryToEdit}
+            />
           ))}
         </div>
       )}
 
-      <CreateCategoryModal
+      <CategoryFormModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={load}
+        onSaved={load}
+      />
+      <CategoryFormModal
+        open={Boolean(categoryToEdit)}
+        category={categoryToEdit}
+        onClose={() => setCategoryToEdit(null)}
+        onSaved={load}
       />
       <ToggleCategoryModal
         category={categoryToToggle}

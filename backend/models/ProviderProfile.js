@@ -47,7 +47,7 @@ const providerProfileSchema = new mongoose.Schema(
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
       geo: {
-        type: { type: String, enum: ['Point'], default: 'Point' },
+        type: { type: String, enum: ['Point'], default: undefined },
         coordinates: { type: [Number], default: undefined },
       },
     },
@@ -55,6 +55,7 @@ const providerProfileSchema = new mongoose.Schema(
       aadhar_front: { type: String, default: null },
       aadhar_back: { type: String, default: null },
       passbook_front: { type: String, default: null },
+      live_photo: { type: String, default: null },
     },
     verification_status: { type: String, enum: ['unverified', 'pending', 'verified'], default: 'unverified' },
     application_status: {

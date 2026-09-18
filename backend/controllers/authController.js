@@ -20,6 +20,7 @@ const setRefreshCookie = (res, token) => {
 };
 const { generateOTP, sendOtp } = require('../utils/otp');
 const { parseIdentifier } = require('../utils/identifier');
+const { saveBuffer, deleteByUrl } = require('../services/storageService');
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -485,8 +486,15 @@ const updateAvatar = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.avatar_url = `/uploads/avatars/${req.file.filename}`;
+    const ext = (req.file.originalname.match(/\.[a-zA-Z0-9]+$/) || ['.jpg'])[0].toLowerCase();
+    const key = `avatars/${user.id}-${Date.now()}${ext}`;
+    const { url } = await saveBuffer({ key, buffer: req.file.buffer, contentType: req.file.mimetype });
+
+    const previousAvatarUrl = user.avatar_url;
+    user.avatar_url = url;
     await user.save();
+
+    if (previousAvatarUrl) await deleteByUrl(previousAvatarUrl);
 
     res.json({ message: 'Profile picture updated', user });
   } catch (error) {
@@ -499,8 +507,11 @@ const removeAvatar = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const previousAvatarUrl = user.avatar_url;
     user.avatar_url = null;
     await user.save();
+
+    if (previousAvatarUrl) await deleteByUrl(previousAvatarUrl);
 
     res.json({ message: 'Profile picture removed', user });
   } catch (error) {

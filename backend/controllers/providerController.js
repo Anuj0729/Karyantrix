@@ -23,12 +23,17 @@ const isFieldComplete = (profile, field) => {
 const hasPreciseLocation = (profile) => profile.location && profile.location.lat != null && profile.location.lng != null;
 
 const hasKycDocuments = (profile) =>
-  Boolean(profile.kyc_documents?.aadhar_front && profile.kyc_documents?.aadhar_back && profile.kyc_documents?.passbook_front);
+  Boolean(
+    profile.kyc_documents?.aadhar_front &&
+      profile.kyc_documents?.aadhar_back &&
+      profile.kyc_documents?.passbook_front &&
+      profile.kyc_documents?.live_photo
+  );
 
 const buildApplicationMeta = async (profile) => {
   const missing = REQUIRED_APPLICATION_FIELDS.filter((f) => !isFieldComplete(profile, f)).map((f) => f.label);
   if (!hasPreciseLocation(profile)) missing.push('Precise location');
-  if (!hasKycDocuments(profile)) missing.push('KYC documents (Aadhaar front & back, passbook front)');
+  if (!hasKycDocuments(profile)) missing.push('KYC documents (Aadhaar front & back, passbook front, live profile photo)');
 
   const serviceCount = await Service.countDocuments({ provider: profile.user });
   if (serviceCount === 0) missing.push('At least one service');

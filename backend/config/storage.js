@@ -31,6 +31,21 @@ const EXPLICIT_MIME_BY_EXT = {
 
 const AUDIO_EXTS = new Set(['.webm', '.m4a', '.aac', '.oga', '.ogg', '.opus', '.mp3', '.wav']);
 
+const MIME_BY_EXT = {
+  ...EXPLICIT_MIME_BY_EXT,
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+};
+
+const guessContentType = (ext, fallback = 'application/octet-stream') =>
+  MIME_BY_EXT[String(ext || '').toLowerCase()] || fallback;
+
 module.exports = {
   UPLOAD_ROOT,
   LEGACY_UPLOAD_ROOT,
@@ -38,5 +53,7 @@ module.exports = {
   chatMediaDir,
   chatTmpChunkDir,
   EXPLICIT_MIME_BY_EXT,
+  MIME_BY_EXT,
+  guessContentType,
   AUDIO_EXTS,
 };

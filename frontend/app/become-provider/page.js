@@ -18,9 +18,10 @@ import { uploadMediaDetailed } from '../../lib/uploadService';
 import { resolveMediaUrl } from '../../components/chat/mediaUrl';
 import useGeolocation from '../../lib/useGeolocation';
 import { forwardGeocode, reverseGeocodeDetailed } from '../../lib/geocode';
+import CameraCapture from '../../components/ui/CameraCapture';
 import {
   IdCard, Briefcase, ListChecks, Image as ImageIcon, Calendar,
-  ShieldCheck, Clock, TriangleAlert, X, CircleCheck, ArrowLeft, ArrowRight, UploadCloud, FileText,
+  ShieldCheck, Clock, TriangleAlert, X, CircleCheck, ArrowLeft, ArrowRight, UploadCloud, FileText, Camera,
 } from 'lucide-react';
 
 const STEPS = [
@@ -37,6 +38,7 @@ const KYC_DOC_FIELDS = [
   { key: 'aadhar_front', label: 'Aadhaar card - front', hint: 'Clear photo of the front side' },
   { key: 'aadhar_back', label: 'Aadhaar card - back', hint: 'Clear photo of the back side' },
   { key: 'passbook_front', label: 'Bank passbook - front page', hint: 'Front page showing account details' },
+  { key: 'live_photo', label: 'Live profile photo', hint: 'Take a real-time selfie using your camera', capture: true },
 ];
 
 const deriveFromServices = (services) => {
@@ -73,7 +75,7 @@ const EMPTY_FORM = {
   starting_price_type: 'fixed',
   availability: { days: [], hours_from: '09:00', hours_to: '18:00', advance_booking_days: 1 },
   location: { text: '', lat: null, lng: null },
-  kyc_documents: { aadhar_front: '', aadhar_back: '', passbook_front: '' },
+  kyc_documents: { aadhar_front: '', aadhar_back: '', passbook_front: '', live_photo: '' },
 };
 
 const STEP_VALIDATORS = {
@@ -93,7 +95,7 @@ const STEP_INCOMPLETE_MESSAGE = {
   basics: 'Please fill in professional title, bio, your precise location, languages and service radius first',
   experience: 'Please enter your years of experience first',
   services: 'Please add at least one service before continuing',
-  documents: 'Please upload your Aadhaar card (front & back) and bank passbook front photo first',
+  documents: 'Please upload your Aadhaar card (front & back), bank passbook front photo and take your live profile photo first',
 };
 
 const ALL_DAYS = [
@@ -148,7 +150,8 @@ function OnboardingContent() {
   const [certForm, setCertForm] = useState({ title: '', issuer: '', year: '' });
   const [portfolioForm, setPortfolioForm] = useState({ image_url: '', title: '', description: '' });
   const [portfolioUploading, setPortfolioUploading] = useState(false);
-  const [kycUploading, setKycUploading] = useState({ aadhar_front: false, aadhar_back: false, passbook_front: false });
+  const [kycUploading, setKycUploading] = useState({ aadhar_front: false, aadhar_back: false, passbook_front: false, live_photo: false });
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const hasSavedLocationRef = useRef(false);
   const userEditedLocationRef = useRef(false);
@@ -204,6 +207,7 @@ function OnboardingContent() {
               aadhar_front: p.kyc_documents?.aadhar_front || '',
               aadhar_back: p.kyc_documents?.aadhar_back || '',
               passbook_front: p.kyc_documents?.passbook_front || '',
+              live_photo: p.kyc_documents?.live_photo || '',
             },
           });
           if (p.location?.lat != null && p.location?.lng != null) {
@@ -463,6 +467,19 @@ function OnboardingContent() {
 
   const removeKycFile = (docKey) => {
     setForm((f) => ({ ...f, kyc_documents: { ...f.kyc_documents, [docKey]: '' } }));
+  };
+
+  const handleLivePhotoCapture = async (file) => {
+    setCameraOpen(false);
+    setKycUploading((s) => ({ ...s, live_photo: true }));
+    try {
+      const { url } = await uploadMediaDetailed(file);
+      setForm((f) => ({ ...f, kyc_documents: { ...f.kyc_documents, live_photo: url } }));
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not upload your live photo', { type: 'error' });
+    } finally {
+      setKycUploading((s) => ({ ...s, live_photo: false }));
+    }
   };
 
   const toggleDay = (day) => {
@@ -842,8 +859,9 @@ function OnboardingContent() {
               <div className="space-y-4">
                 <h2 className="font-semibold text-ink-900">Identity & bank documents</h2>
                 <p className="text-sm text-ink-500">
-                  Required for verification &mdash; upload clear photos of your Aadhaar card (front &amp; back) and your
-                  bank passbook&apos;s front page. These are reviewed by our admin team before your provider account is activated.
+                  Required for verification &mdash; upload clear photos of your Aadhaar card (front &amp; back), your
+                  bank passbook&apos;s front page, and take a live selfie so we can confirm it&apos;s really you. These are
+                  reviewed by our admin team before your provider account is activated.
                 </p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   {KYC_DOC_FIELDS.map((doc) => {
@@ -857,12 +875,29 @@ function OnboardingContent() {
                             <img src={resolveMediaUrl(value)} alt={doc.label} className="h-full w-full object-cover" />
                             <button
                               type="button"
-                              onClick={() => removeKycFile(doc.key)}
+                              onClick={() => (doc.capture ? setCameraOpen(true) : removeKycFile(doc.key))}
                               className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink-900/70 text-white hover:bg-ink-900"
+                              title={doc.capture ? 'Retake photo' : 'Remove'}
                             >
-                              <X size={13} aria-hidden="true" />
+                              {doc.capture ? <Camera size={13} aria-hidden="true" /> : <X size={13} aria-hidden="true" />}
                             </button>
                           </div>
+                        ) : doc.capture ? (
+                          <button
+                            type="button"
+                            onClick={() => setCameraOpen(true)}
+                            disabled={uploading}
+                            className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-ink-200 bg-white text-ink-400 transition-colors hover:border-brand-300 disabled:cursor-wait"
+                          >
+                            {uploading ? (
+                              <Spinner size={20} className="text-brand-600" />
+                            ) : (
+                              <>
+                                <Camera size={20} aria-hidden="true" />
+                                <span className="text-[11px] font-medium">Open camera</span>
+                              </>
+                            )}
+                          </button>
                         ) : (
                           <label className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-ink-200 bg-white text-ink-400 transition-colors hover:border-brand-300">
                             {uploading ? (
@@ -881,6 +916,12 @@ function OnboardingContent() {
                     );
                   })}
                 </div>
+                <CameraCapture
+                  isOpen={cameraOpen}
+                  onClose={() => setCameraOpen(false)}
+                  onConfirm={handleLivePhotoCapture}
+                  title="Take your live profile photo"
+                />
               </div>
             )}
 

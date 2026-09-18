@@ -1,0 +1,101 @@
+# Base service definitions.
+#
+# This file on its own describes the PRODUCTION topology: backend/worker/
+# frontend run from pre-built images (pushed by the CI/CD pipeline to
+# GHCR), not from local source. That's the "production deployment path".
+#
+# For LOCAL DEVELOPMENT, `docker-compose.override.yml` sits next to this
+# file and is picked up automatically by plain `docker compose up`, adding
+# a `build:` step so you get fresh local images instead of registry pulls.
+#
+# For a real deploy, run:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# (see DEPLOYMENT.md)
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${REGISTRY:-ghcr.io/OWNER}/karyantrix-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/karyantrix
+      REDIS_URL: redis://redis:6379
+      REDIS_ENABLED: "true"
+      RUN_WORKER_IN_PROCESS: "false" # the `worker` service handles jobs instead
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${REGISTRY:-ghcr.io/OWNER}/karyantrix-backend:${IMAGE_TAG:-latest}
+    command: ["node", "jobs/worker.js"]
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongo:27017/karyantrix
+      REDIS_URL: redis://redis:6379
+      REDIS_ENABLED: "true"
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: ${REGISTRY:-ghcr.io/OWNER}/karyantrix-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_URL: http://backend:5000/api
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  redis_data:
+  backend_uploads:

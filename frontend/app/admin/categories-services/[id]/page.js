@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Plus, Power, Trash2, UserX, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Pencil, Plus, Power, Trash2, UserX, X } from 'lucide-react';
 import api from '../../../../lib/api';
 import BackButton from '../../../../components/BackButton';
 import { useToast } from '../../../../components/ui/Toast';
@@ -17,10 +17,16 @@ import useRefetchOnFocus from '../../../../lib/useRefetchOnFocus';
 
 const EMPTY_FORM = { name: '', description: '' };
 
-function CreateServiceModal({ open, onClose, categoryId, onCreated }) {
+function ServiceFormModal({ open, onClose, categoryId, onSaved, service }) {
   const { toast } = useToast();
+  const isEdit = Boolean(service);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(service ? { name: service.name || '', description: service.description || '' } : EMPTY_FORM);
+  }, [open, service]);
 
   const handleClose = () => {
     setForm(EMPTY_FORM);
@@ -35,12 +41,17 @@ function CreateServiceModal({ open, onClose, categoryId, onCreated }) {
     }
     setSaving(true);
     try {
-      await api.post('/admin/service-catalog', { category_id: categoryId, ...form });
-      toast('Service added to catalog', { type: 'success' });
+      if (isEdit) {
+        await api.put(`/admin/service-catalog/${service.id}`, form);
+        toast('Service updated', { type: 'success' });
+      } else {
+        await api.post('/admin/service-catalog', { category_id: categoryId, ...form });
+        toast('Service added to catalog', { type: 'success' });
+      }
       handleClose();
-      onCreated();
+      onSaved();
     } catch (err) {
-      toast(err.response?.data?.message || 'Could not create service', { type: 'error' });
+      toast(err.response?.data?.message || `Could not ${isEdit ? 'update' : 'create'} service`, { type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -66,7 +77,7 @@ function CreateServiceModal({ open, onClose, categoryId, onCreated }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold text-ink-900">Create New Service</h2>
+            <h2 className="font-display text-lg font-bold text-ink-900">{isEdit ? 'Edit Service' : 'Create New Service'}</h2>
             <button type="button" onClick={handleClose} aria-label="Close" className="rounded-xl p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 transition-colors">
               <X size={18} aria-hidden="true" />
             </button>
@@ -80,7 +91,7 @@ function CreateServiceModal({ open, onClose, categoryId, onCreated }) {
             </Field>
             <div className="pt-2">
               <Button type="submit" loading={saving} fullWidth>
-                Create Service
+                {isEdit ? 'Save changes' : 'Create Service'}
               </Button>
             </div>
           </form>
@@ -188,6 +199,7 @@ function AdminCategoryServicesContent() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [serviceToEdit, setServiceToEdit] = useState(null);
   const [serviceToDeactivate, setServiceToDeactivate] = useState(null);
   const [deactivating, setDeactivating] = useState(false);
   const [activatingServiceId, setActivatingServiceId] = useState(null);
@@ -403,9 +415,15 @@ function AdminCategoryServicesContent() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between border-t border-ink-100/80 pt-3.5">
-                    <span className="text-[11px] font-medium text-ink-400">
-                      Standard catalog service
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setServiceToEdit(s)}
+                      className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-ink-500 hover:bg-ink-100 hover:text-ink-700 transition-colors"
+                      aria-label={`Edit ${s.name}`}
+                    >
+                      <Pencil size={13} aria-hidden="true" />
+                      <span>Edit</span>
+                    </button>
                     {s.is_active ? (
                       <button
                         type="button"
@@ -437,7 +455,13 @@ function AdminCategoryServicesContent() {
         </div>
       )}
 
-      <CreateServiceModal open={createOpen} onClose={() => setCreateOpen(false)} categoryId={id} onCreated={load} />
+      <ServiceFormModal open={createOpen} onClose={() => setCreateOpen(false)} categoryId={id} onSaved={load} />
+      <ServiceFormModal
+        open={Boolean(serviceToEdit)}
+        service={serviceToEdit}
+        onClose={() => setServiceToEdit(null)}
+        onSaved={load}
+      />
       <DeactivateModal
         service={serviceToDeactivate}
         onClose={() => setServiceToDeactivate(null)}

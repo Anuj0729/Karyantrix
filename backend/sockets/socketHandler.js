@@ -58,6 +58,16 @@ const initSocket = (io) => {
       );
     }
 
+    socket.on("chat:join", ({ conversation_id } = {}) => {
+      if (!conversation_id) return;
+      socket.join(`conversation_${conversation_id}`);
+    });
+
+    socket.on("chat:leave", ({ conversation_id } = {}) => {
+      if (!conversation_id) return;
+      socket.leave(`conversation_${conversation_id}`);
+    });
+
     socket.on("chat:typing", async ({ conversation_id, isTyping } = {}) => {
       if (!conversation_id) return;
       try {
@@ -102,4 +112,22 @@ const emitBroadcast = (event, payload) => {
   ioInstance.emit(event, payload);
 };
 
-module.exports = { initSocket, emitToUser, emitBroadcast, getParticipants };
+const isUserActiveInConversation = (userId, conversationId) => {
+  if (!ioInstance || !userId || !conversationId) return false;
+  const room = ioInstance.sockets.adapter.rooms.get(`conversation_${conversationId}`);
+  if (!room || room.size === 0) return false;
+
+  for (const socketId of room) {
+    const socket = ioInstance.sockets.sockets.get(socketId);
+    if (socket && socket.userId === userId) return true;
+  }
+  return false;
+};
+
+module.exports = {
+  initSocket,
+  emitToUser,
+  emitBroadcast,
+  getParticipants,
+  isUserActiveInConversation,
+};

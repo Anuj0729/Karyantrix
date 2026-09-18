@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const { UploadSession } = require('../models');
+const { assembleChunksToStorage } = require('../services/storageService');
+const { guessContentType } = require('../config/storage');
 
 const TMP_ROOT = path.join(__dirname, '..', 'uploads', 'tmp-chunks');
-const FINAL_DIR = path.join(__dirname, '..', 'uploads', 'requirements');
 fs.mkdirSync(TMP_ROOT, { recursive: true });
-fs.mkdirSync(FINAL_DIR, { recursive: true });
 
 const extFromFilename = (filename = '') => {
   const ext = path.extname(filename).toLowerCase();
@@ -103,23 +103,24 @@ const completeUpload = async (req, res, next) => {
     }
 
     const ext = extFromFilename(session.filename) || (session.media_type === 'video' ? '.mp4' : '.jpg');
-    const finalName = `${session.id}${ext}`;
-    const finalPath = path.join(FINAL_DIR, finalName);
+    const key = `requirements/${session.id}${ext}`;
+    const contentType = guessContentType(ext, `${session.media_type}/*`);
 
-    const writeStream = fs.createWriteStream(finalPath);
-    for (let i = 0; i < session.total_chunks; i += 1) {
-      const buf = fs.readFileSync(chunkPath(session.id, i));
-      writeStream.write(buf);
+    let stored;
+    try {
+      stored = await assembleChunksToStorage({
+        tempDir: session.temp_dir,
+        totalChunks: session.total_chunks,
+        key,
+        contentType,
+      });
+    } catch (err) {
+      return res.status(500).json({ message: 'The upload could not be assembled, please try again' });
     }
-    writeStream.end();
-    await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-    });
 
     fs.rmSync(session.temp_dir, { recursive: true, force: true });
 
-    session.url = `/uploads/requirements/${finalName}`;
+    session.url = stored.url;
     session.status = 'completed';
     await session.save();
 

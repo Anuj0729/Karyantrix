@@ -2,10 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const { UploadSession } = require('../models');
-const { chatMediaDir, chatTmpChunkDir } = require('../config/storage');
+const { chatTmpChunkDir, guessContentType } = require('../config/storage');
+const { assembleChunksToStorage } = require('../services/storageService');
 
 const TMP_ROOT = chatTmpChunkDir();
-const FINAL_DIR = chatMediaDir();
 
 const ALLOWED_EXTS = {
   image: ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.avif', '.heic', '.heif'],
@@ -116,45 +116,24 @@ const completeChatUpload = async (req, res, next) => {
 
     const ext = safeExtFor(session.media_type, session.filename);
     const finalName = `${session.id}${ext}`;
-    const finalPath = path.join(FINAL_DIR, finalName);
+    const key = `chat-media/${finalName}`;
+    const contentType = guessContentType(ext, `${session.media_type}/*`);
 
-    fs.mkdirSync(FINAL_DIR, { recursive: true });
-
-    await new Promise((resolve, reject) => {
-      const writeStream = fs.createWriteStream(finalPath);
-      writeStream.on('error', reject);
-      writeStream.on('finish', resolve);
-
-      let index = 0;
-      const writeNext = () => {
-        while (index < session.total_chunks) {
-          const current = chunkPath(session.id, index);
-          index += 1;
-          const buf = fs.readFileSync(current);
-          if (!writeStream.write(buf)) {
-            writeStream.once('drain', writeNext);
-            return;
-          }
-        }
-        writeStream.end();
-      };
-
-      try {
-        writeNext();
-      } catch (err) {
-        writeStream.destroy();
-        reject(err);
-      }
-    });
-
-    const stats = await fs.promises.stat(finalPath).catch(() => null);
-    if (!stats || stats.size === 0) {
+    let stored;
+    try {
+      stored = await assembleChunksToStorage({
+        tempDir: session.temp_dir,
+        totalChunks: session.total_chunks,
+        key,
+        contentType,
+      });
+    } catch (err) {
       return res.status(500).json({ message: 'The upload could not be assembled, please try again' });
     }
 
     fs.rmSync(session.temp_dir, { recursive: true, force: true });
 
-    session.url = `/uploads/chat-media/${finalName}`;
+    session.url = stored.url;
     session.status = 'completed';
     await session.save();
 

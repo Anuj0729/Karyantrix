@@ -285,6 +285,35 @@ export function ChatProvider({ children }) {
     };
   }, [user, refreshConversations, upsertLocalMessage]);
 
+  useEffect(() => {
+    if (!user || !activeConversationId) return undefined;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_token') : null;
+    const socket = getSocket(token);
+
+    const join = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      socket.emit('chat:join', { conversation_id: activeConversationId });
+    };
+    const leave = () => socket.emit('chat:leave', { conversation_id: activeConversationId });
+
+    join();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') leave();
+      else join();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
+      leave();
+    };
+  }, [user, activeConversationId]);
+
   const loadMessages = useCallback(async (conversationId, { before } = {}) => {
     setMessagesByConversation((prev) => ({
       ...prev,

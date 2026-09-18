@@ -3,6 +3,7 @@ const { Booking, Notification, WalletTransaction, PlatformSetting } = require('.
 const { getRazorpay } = require('../config/razorpay');
 const { toPaise } = require('../utils/payments');
 const { emitToUser } = require('../sockets/socketHandler');
+const { saveBuffer } = require('../services/storageService');
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -177,10 +178,14 @@ const addProgressUpdate = async (req, res, next) => {
       return res.status(400).json({ message: 'At least one photo or video of the work is required' });
     }
 
-    const media = files.map((f) => ({
-      url: `/uploads/booking-progress/${f.filename}`,
-      type: f.mimetype.startsWith('video/') ? 'video' : 'image',
-    }));
+    const media = await Promise.all(
+      files.map(async (f) => {
+        const ext = (f.originalname.match(/\.[a-zA-Z0-9]+$/) || [f.mimetype.startsWith('video/') ? '.mp4' : '.jpg'])[0].toLowerCase();
+        const key = `booking-progress/${req.params.id}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        const { url } = await saveBuffer({ key, buffer: f.buffer, contentType: f.mimetype });
+        return { url, type: f.mimetype.startsWith('video/') ? 'video' : 'image' };
+      })
+    );
 
     booking.progress_updates.push({
       note: note.trim(),

@@ -1,0 +1,27 @@
+# Auto-loaded by `docker compose up` (no -f flags) alongside docker-compose.yml.
+# Adds `build:` so local dev builds images from source instead of pulling
+# from the registry. Do NOT pass this file explicitly in production
+# (docker-compose.prod.yml is used there instead, see DEPLOYMENT.md).
+
+services:
+  mongo:
+    ports:
+      - "27018:27017"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: karyantrix-backend:dev
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: karyantrix-backend:dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: karyantrix-frontend:dev

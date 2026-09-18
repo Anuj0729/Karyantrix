@@ -4,7 +4,7 @@ import { MapPin, Briefcase, ShieldCheck, ShieldAlert, ChevronRight } from 'lucid
 import Card from '../ui/Card';
 import StatusBadge from '../StatusBadge';
 
-const KYC_KEYS = ['aadhar_front', 'aadhar_back', 'passbook_front'];
+const KYC_KEYS = ['aadhar_front', 'aadhar_back', 'passbook_front', 'live_photo'];
 
 export default function ProviderApplicationCard({ application, onOpen }) {
   const user = application.user || {};
@@ -35,9 +35,9 @@ export default function ProviderApplicationCard({ application, onOpen }) {
         <span className="flex items-center gap-1">
           <Briefcase size={12} aria-hidden="true" /> {application.service_count || 0} service{application.service_count === 1 ? '' : 's'}
         </span>
-        <span className={`flex items-center gap-1 font-medium ${docsUploaded === 3 ? 'text-trust-600' : 'text-amber-600'}`}>
-          {docsUploaded === 3 ? <ShieldCheck size={12} aria-hidden="true" /> : <ShieldAlert size={12} aria-hidden="true" />}
-          {docsUploaded}/3 documents
+        <span className={`flex items-center gap-1 font-medium ${docsUploaded === KYC_KEYS.length ? 'text-trust-600' : 'text-amber-600'}`}>
+          {docsUploaded === KYC_KEYS.length ? <ShieldCheck size={12} aria-hidden="true" /> : <ShieldAlert size={12} aria-hidden="true" />}
+          {docsUploaded}/{KYC_KEYS.length} documents
         </span>
       </div>
 

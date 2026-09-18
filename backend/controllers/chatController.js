@@ -1,5 +1,5 @@
 const { Conversation, Message, User, UploadSession, Notification } = require('../models');
-const { emitToUser } = require('../sockets/socketHandler');
+const { emitToUser, isUserActiveInConversation } = require('../sockets/socketHandler');
 
 const PREVIEW_TEXT = { image: '📷 Photo', video: '🎥 Video' };
 const DELETED_PREVIEW = 'This message was deleted';
@@ -181,6 +181,8 @@ const sendMessage = async (req, res, next) => {
 
     res.status(201).json({ success: true, message, client_id: client_id || null });
 
+    const recipientActive = isUserActiveInConversation(otherParticipantId, conversation.id);
+
     const unreadField = isCustomerSender ? 'provider_unread_count' : 'customer_unread_count';
     Conversation.updateOne(
       { _id: conversation.id },
@@ -191,12 +193,13 @@ const sendMessage = async (req, res, next) => {
           last_message_at: message.createdAt,
           last_message_sender: req.user.id,
         },
-        
-        $inc: { [unreadField]: 1 },
+        ...(recipientActive ? {} : { $inc: { [unreadField]: 1 } }),
       }
     ).catch(() => {});
 
-    notifyNewMessage(otherParticipantId, req.user.name, message).catch(() => {});
+    if (!recipientActive) {
+      notifyNewMessage(otherParticipantId, req.user.name, message).catch(() => {});
+    }
   } catch (error) {
     if (res.headersSent) return;
     next(error);
@@ -305,7 +308,6 @@ const deleteMessage = async (req, res, next) => {
       emitToUser(otherParticipantId, 'chat:message_deleted', payload);
       emitToUser(req.user.id, 'chat:message_deleted', payload);
 
-      // Release the orphaned upload record so the media file can be reclaimed.
       if (removedUploadId) {
         UploadSession.updateOne({ _id: removedUploadId }, { $set: { consumed: true } }).catch(() => {});
       }

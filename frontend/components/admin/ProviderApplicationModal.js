@@ -17,6 +17,7 @@ const KYC_DOC_FIELDS = [
   { key: 'aadhar_front', label: 'Aadhaar card - front' },
   { key: 'aadhar_back', label: 'Aadhaar card - back' },
   { key: 'passbook_front', label: 'Bank passbook - front page' },
+  { key: 'live_photo', label: 'Live profile photo' },
 ];
 
 function SectionLabel({ icon: Icon, children }) {
@@ -202,7 +203,7 @@ export default function ProviderApplicationModal({ application, isOpen, onClose,
 
           <div>
             <SectionLabel icon={ShieldCheck}>KYC documents</SectionLabel>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {KYC_DOC_FIELDS.map((doc) => {
                 const url = kyc[doc.key];
                 return (
