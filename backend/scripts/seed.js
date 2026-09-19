@@ -523,7 +523,7 @@ async function seed() {
     reporter_role: 'customer',
     reported_user: providers[8].user._id,
     reported_role: 'provider',
-    reason: 'no_show',
+    reason: 'other',
     description: 'Provider never arrived for the scheduled visit.',
     context: { requirement: req8._id },
     status: 'pending',
