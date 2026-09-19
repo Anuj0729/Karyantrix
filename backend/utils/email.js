@@ -13,7 +13,7 @@ if (!process.env.SMTP_SENDER_USER) {
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-const sendOTPEmail = (email, otp) => {
+const sendOTPEmail = async (email, otp) => {
   const msg = {
     to: email,
     from: {
@@ -266,14 +266,22 @@ If you did not request this code, please ignore this email.
     `.trim(),
   };
 
-  return sgMail
-    .send(msg)
-    .then((response) => {
-      console.log("OTP has been sended into your email");
-      console.log("Status Code : ", response[0].statusCode);
-      console.log("Header : ", response[0].headers);
-    })
-    .catch((error) => console.error("Error sending email:", error));
+  try {
+    const response = await sgMail.send(msg);
+
+    console.log("OTP email sent successfully");
+    console.log("Status Code:", response[0].statusCode);
+
+    return response;
+  } catch (error) {
+    console.error("Error sending email:", {
+      message: error.message,
+      code: error.code,
+      errors: error.response?.body?.errors,
+    });
+
+    throw error;
+  }
 };
 
 module.exports = { sendOTPEmail };
