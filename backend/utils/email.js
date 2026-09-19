@@ -1,20 +1,28 @@
 // utils/sendgrid.js
-const sgMail = require('@sendgrid/mail');
-const dotenv = require('dotenv');
+const sgMail = require("@sendgrid/mail");
+const dotenv = require("dotenv");
 dotenv.config();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error("SENDGRID_API_KEY is missing");
+}
+
+if (!process.env.SMTP_SENDER_USER) {
+  throw new Error("SMTP_SENDER_USER is missing");
+}
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const sendOTPEmail = (email, otp) => {
   const msg = {
     to: email,
     from: {
-      email: `<${process.env.SMTP_SENDER_USER}>`,
+      email: process.env.SMTP_SENDER_USER,
       name: "Karyantrix",
     },
     subject: "Your Karyantrix Verification Code",
 
-     text: `
+    text: `
 Your Karyantrix verification code is: ${otp}
 
 This verification code will expire in 5 minutes.
@@ -23,7 +31,7 @@ If you did not request this code, please ignore this email.
 
 © ${new Date().getFullYear()} Karyantrix. All rights reserved.
     `.trim(),
-    
+
     html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -261,12 +269,11 @@ If you did not request this code, please ignore this email.
   return sgMail
     .send(msg)
     .then((response) => {
-      console.log('OTP has been sended into your email')
-      console.log("Status Code : ",response[0].statusCode)
-      console.log("Header : ",response[0].headers)
+      console.log("OTP has been sended into your email");
+      console.log("Status Code : ", response[0].statusCode);
+      console.log("Header : ", response[0].headers);
     })
-    .catch((error) => console.error('Error sending email:', error));
+    .catch((error) => console.error("Error sending email:", error));
 };
-
 
 module.exports = { sendOTPEmail };
