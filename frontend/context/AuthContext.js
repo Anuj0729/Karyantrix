@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import api, {
@@ -24,6 +25,22 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const { toast } = useToast();
+  const notificationHandlerRef = useRef(null);
+
+  // persistSession runs on every login/role switch. Remove our previous listener first so
+  // switching roles doesn't stack duplicate handlers (and duplicate toasts) on the shared socket.
+  const bindNotificationListener = (socket) => {
+    if (notificationHandlerRef.current) {
+      socket.off("notification", notificationHandlerRef.current);
+    }
+    const handler = (notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      toast(notification.message, { type: "info", title: notification.title });
+      refreshUser();
+    };
+    notificationHandlerRef.current = handler;
+    socket.on("notification", handler);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("karyantrix_token");
@@ -34,15 +51,7 @@ export function AuthProvider({ children }) {
       setUser(JSON.parse(savedUser));
       hydrateNotifications();
       refreshUser();
-      const socket = getSocket(token);
-      socket.on("notification", (notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-        toast(notification.message, {
-          type: "info",
-          title: notification.title,
-        });
-        refreshUser();
-      });
+      bindNotificationListener(getSocket(token));
     }
     setLoading(false);
   }, []);
@@ -64,12 +73,7 @@ export function AuthProvider({ children }) {
     setUser(userData);
     hydrateNotifications();
 
-    const socket = getSocket(token);
-    socket.on("notification", (notification) => {
-      setNotifications((prev) => [notification, ...prev]);
-      toast(notification.message, { type: "info", title: notification.title });
-      refreshUser();
-    });
+    bindNotificationListener(getSocket(token));
   };
 
   const initiateRegister = async ({ name, identifier, password }) => {
@@ -184,6 +188,26 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const switchToCustomer = async () => {
+    const { data } = await api.post("/providers/switch-to-customer");
+    persistSession(
+      data.accessToken || data.token,
+      data.user,
+      data.refreshToken,
+    );
+    return data.user;
+  };
+
+  const switchToProvider = async () => {
+    const { data } = await api.post("/providers/switch-to-provider");
+    persistSession(
+      data.accessToken || data.token,
+      data.user,
+      data.refreshToken,
+    );
+    return data.user;
+  };
+
   const logout = async () => {
     try {
       await api.post("/auth/logout");
@@ -192,6 +216,7 @@ export function AuthProvider({ children }) {
     clearRefreshToken();
     localStorage.removeItem("karyantrix_user");
     disconnectSocket();
+    notificationHandlerRef.current = null;
     setUser(null);
     setNotifications([]);
   };
@@ -233,6 +258,8 @@ export function AuthProvider({ children }) {
       resetPassword,
       changePassword,
       becomeProvider,
+      switchToCustomer,
+      switchToProvider,
       refreshUser,
       updateLocalUser,
       logout,

@@ -14,6 +14,7 @@ import {
     X,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -165,6 +166,8 @@ function MediaLightbox({ media, index, onNavigate, onClose }) {
 export default function RequirementCard({ requirement, onUpdated }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
+  const openDetail = () => router.push(`/requirements/${requirement.id}`);
   const customer = requirement.customer || {};
   const isFixedPrice = requirement.post_type === 'fixed';
   const [interested, setInterested] = useState(false);
@@ -215,7 +218,16 @@ export default function RequirementCard({ requirement, onUpdated }) {
 
   return (
     <Card
-      className="group relative flex flex-col justify-between overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl"
+      className="group relative flex flex-col justify-between overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
+      onClick={openDetail}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDetail();
+        }
+      }}
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
@@ -293,7 +305,10 @@ export default function RequirementCard({ requirement, onUpdated }) {
           {descClamped && (
             <button
               type="button"
-              onClick={() => setDescExpanded((v) => !v)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDescExpanded((v) => !v);
+              }}
               className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline"
             >
               {descExpanded ? 'Show less' : 'Read more'}
@@ -308,10 +323,14 @@ export default function RequirementCard({ requirement, onUpdated }) {
                 key={m.url}
                 role="button"
                 tabIndex={0}
-                onClick={() => setLightboxIndex(i)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex(i);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
+                    e.stopPropagation();
                     setLightboxIndex(i);
                   }
                 }}
@@ -345,7 +364,10 @@ export default function RequirementCard({ requirement, onUpdated }) {
         )}
       </div>
 
-      <div className="mt-5 pt-4 border-t border-ink-100/80 flex flex-wrap items-center justify-between gap-2.5">
+      <div
+        className="mt-5 pt-4 border-t border-ink-100/80 flex flex-wrap items-center justify-between gap-2.5"
+        onClick={(e) => e.stopPropagation()}
+      >
         {user?.role === 'provider' && (
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {!isFixedPrice && (
@@ -356,7 +378,7 @@ export default function RequirementCard({ requirement, onUpdated }) {
                 className="flex-1 sm:flex-initial"
                 icon={<Gavel size={14} aria-hidden="true" />}
               >
-                Place a bid
+                View bids &amp; bid
               </Button>
             )}
             <Button

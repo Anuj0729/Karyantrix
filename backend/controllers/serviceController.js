@@ -145,8 +145,22 @@ const buildServiceFromCatalog = async (providerId, item) => {
   });
 };
 
+const MAX_APPLICANT_SERVICES = 1;
+
+const ensureApplicantServiceLimit = async (providerId, role, additionalCount) => {
+  if (role !== 'customer') return;
+  const existingCount = await Service.countDocuments({ provider: providerId, is_active: true });
+  if (existingCount + additionalCount > MAX_APPLICANT_SERVICES) {
+    throw {
+      status: 400,
+      message: 'You can only add one service to your provider application. Remove the existing one first if you want to choose a different category or service.',
+    };
+  }
+};
+
 const createService = async (req, res, next) => {
   try {
+    await ensureApplicantServiceLimit(req.user.id, req.user.role, 1);
     const service = await buildServiceFromCatalog(req.user.id, req.body);
     res.status(201).json({ message: 'Service listing created', service });
   } catch (error) {
@@ -161,6 +175,8 @@ const bulkCreateServices = async (req, res, next) => {
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Select at least one service' });
     }
+
+    await ensureApplicantServiceLimit(req.user.id, req.user.role, items.length);
 
     const created = [];
     const failed = [];
@@ -179,6 +195,7 @@ const bulkCreateServices = async (req, res, next) => {
       failed,
     });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
     next(error);
   }
 };

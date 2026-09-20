@@ -162,12 +162,21 @@ function OnboardingContent() {
       router.push('/provider/dashboard');
       return;
     }
+    // Already approved once (switched to customer): they switch back from their profile, they don't re-apply.
+    if (user.can_switch_to_provider) {
+      router.replace('/profile');
+      return;
+    }
 
     const init = async () => {
       try {
         await becomeProvider();
       } catch (err) {
-
+        // The session may predate the can_switch_to_provider flag; the API is the source of truth.
+        if (err.response?.data?.can_switch_to_provider) {
+          router.replace('/profile');
+          return;
+        }
       }
       try {
         const [{ data: appData }, { data: catData }, { data: svcData }] = await Promise.all([
@@ -412,6 +421,30 @@ function OnboardingContent() {
     } catch (err) {
       toast(err.response?.data?.message || 'Could not add services', { type: 'error' });
       return false;
+    }
+  };
+
+  const removeService = async (service) => {
+    try {
+      await api.delete(`/services/${service.id}`);
+      const updatedServices = services.filter((s) => s.id !== service.id);
+      setServices(updatedServices);
+      const derived = deriveFromServices(updatedServices);
+      setForm((f) => ({
+        ...f,
+        categories: derived.categories,
+        skills: derived.skills,
+        starting_price: derived.starting_price !== '' ? derived.starting_price : f.starting_price,
+        starting_price_type: derived.starting_price !== '' ? derived.starting_price_type : f.starting_price_type,
+      }));
+      setCatalogCategoryId('');
+      setSelectedCatalogIds([]);
+      setCatalogPrices({});
+      const { data: appData } = await api.get('/providers/application/me');
+      setMeta({ missing: appData.missing || [], completion_percentage: appData.completion_percentage || 0, can_submit: appData.can_submit || false, service_count: appData.service_count || 0 });
+      toast('Service removed', { type: 'success' });
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not remove this service', { type: 'error' });
     }
   };
 
@@ -679,79 +712,104 @@ function OnboardingContent() {
               <div className="space-y-4">
                 <h2 className="font-semibold text-ink-900">Services</h2>
                 <p className="text-sm text-ink-500">
-                  Pick from the services set up by the admin, then set your own price for each. You must add at
-                  least one before you can submit your application.
+                  Pick from the services set up by the admin, then set your own price for each. You can offer one
+                  service on your application &mdash; remove it below if you&apos;d like to choose a different one.
                 </p>
-                <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50/50 p-4">
-                  <SelectInput
-                    value={catalogCategoryId}
-                    onChange={(e) => {
-                      setCatalogCategoryId(e.target.value);
-                      setSelectedCatalogIds([]);
-                    }}
-                  >
-                    <option value="">Select category</option>
-                    {flatCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </SelectInput>
 
-                  {catalogCategoryId && (
-                    <MultiSelect
-                      options={catalogOptions
-                        .filter((s) => !addedCatalogServiceIds.has(s.id))
-                        .map((s) => ({ value: s.id, label: s.name }))}
-                      value={selectedCatalogIds}
-                      onChange={setSelectedCatalogIds}
-                      placeholder={
-                        catalogOptions.length === 0
-                          ? 'No services set up under this category yet'
-                          : catalogOptions.every((s) => addedCatalogServiceIds.has(s.id))
-                            ? "You've already added every service in this category"
-                            : 'Select the services you offer'
-                      }
-                    />
-                  )}
+                {services.length === 0 ? (
+                  <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50/50 p-4">
+                    <SelectInput
+                      value={catalogCategoryId}
+                      onChange={(e) => {
+                        setCatalogCategoryId(e.target.value);
+                        setSelectedCatalogIds([]);
+                      }}
+                    >
+                      <option value="">Select category</option>
+                      {flatCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </SelectInput>
 
-                  {selectedCatalogIds.length > 0 && (
-                    <>
-                      <div className="space-y-2 rounded-lg border border-ink-100 bg-white p-3">
-                        {selectedCatalogIds.map((id) => {
-                          const svc = catalogOptions.find((o) => o.id === id);
-                          return (
-                            <div key={id} className="flex items-center justify-between gap-3">
-                              <span className="flex-1 text-sm text-ink-700">{svc?.name}</span>
-                              <TextInput
-                                type="number"
-                                min="0"
-                                placeholder="Your price (₹)"
-                                className="w-32"
-                                value={catalogPrices[id] || ''}
-                                onChange={(e) => setCatalogPrices((p) => ({ ...p, [id]: e.target.value }))}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <SelectInput value={catalogPriceType} onChange={(e) => setCatalogPriceType(e.target.value)}>
-                        <option value="fixed">Fixed</option>
-                        <option value="hourly">Hourly</option>
-                        <option value="estimate">Estimate</option>
-                      </SelectInput>
-                    </>
-                  )}
+                    {catalogCategoryId && (
+                      <MultiSelect
+                        options={catalogOptions
+                          .filter((s) => !addedCatalogServiceIds.has(s.id))
+                          .map((s) => ({ value: s.id, label: s.name }))}
+                        value={selectedCatalogIds}
+                        onChange={(ids) => {
+                          if (ids.length <= 1) {
+                            setSelectedCatalogIds(ids);
+                            return;
+                          }
+                          const newlyPicked = ids.find((id) => !selectedCatalogIds.includes(id));
+                          setSelectedCatalogIds(newlyPicked ? [newlyPicked] : ids.slice(-1));
+                        }}
+                        placeholder={
+                          catalogOptions.length === 0
+                            ? 'No services set up under this category yet'
+                            : catalogOptions.every((s) => addedCatalogServiceIds.has(s.id))
+                              ? "You've already added every service in this category"
+                              : 'Select the service you offer'
+                        }
+                      />
+                    )}
 
-                  <Button type="button" size="sm" onClick={addServices} disabled={selectedCatalogIds.length === 0}>
-                    Add {selectedCatalogIds.length > 1 ? `${selectedCatalogIds.length} services` : 'service'}
-                  </Button>
-                </div>
+                    {selectedCatalogIds.length > 0 && (
+                      <>
+                        <div className="space-y-2 rounded-lg border border-ink-100 bg-white p-3">
+                          {selectedCatalogIds.map((id) => {
+                            const svc = catalogOptions.find((o) => o.id === id);
+                            return (
+                              <div key={id} className="flex items-center justify-between gap-3">
+                                <span className="flex-1 text-sm text-ink-700">{svc?.name}</span>
+                                <TextInput
+                                  type="number"
+                                  min="0"
+                                  placeholder="Your price (₹)"
+                                  className="w-32"
+                                  value={catalogPrices[id] || ''}
+                                  onChange={(e) => setCatalogPrices((p) => ({ ...p, [id]: e.target.value }))}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <SelectInput value={catalogPriceType} onChange={(e) => setCatalogPriceType(e.target.value)}>
+                          <option value="fixed">Fixed</option>
+                          <option value="hourly">Hourly</option>
+                          <option value="estimate">Estimate</option>
+                        </SelectInput>
+                      </>
+                    )}
+
+                    <Button type="button" size="sm" onClick={addServices} disabled={selectedCatalogIds.length === 0}>
+                      Add service
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-brand-100 bg-brand-50 p-3 text-xs text-brand-700">
+                    You&apos;ve already added a service for this category. Remove it if you want to pick a different
+                    category or service.
+                  </p>
+                )}
 
                 {services.length > 0 && (
                   <ul className="space-y-2">
                     {services.map((s) => (
                       <li key={s.id} className="flex items-center justify-between rounded-lg border border-ink-100 px-3 py-2.5 text-sm">
                         <span className="font-medium text-ink-800">{s.title}</span>
-                        <span className="text-ink-500">&#8377;{s.price}{s.price_type === 'hourly' ? '/hr' : ''}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-ink-500">&#8377;{s.price}{s.price_type === 'hourly' ? '/hr' : ''}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeService(s)}
+                            aria-label={`Remove ${s.title}`}
+                            className="rounded-full p-1 text-ink-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          >
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

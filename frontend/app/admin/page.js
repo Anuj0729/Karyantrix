@@ -12,6 +12,7 @@ import {
   Check,
   ChevronRight,
   Flag,
+  FolderOpen,
   Gavel,
   LayoutGrid,
   RefreshCw,
@@ -57,7 +58,7 @@ function AdminDashboardContent() {
       bg: 'bg-brand-50',
       border: 'hover:border-brand-200',
       subtext: 'Registered clients',
-      href: '/admin/users',
+      href: '/admin/users?role=customer',
     },
     {
       label: 'Providers',
@@ -67,7 +68,7 @@ function AdminDashboardContent() {
       bg: 'bg-emerald-50',
       border: 'hover:border-emerald-200',
       subtext: 'Verified specialists',
-      href: '/admin/users',
+      href: '/admin/users?role=provider',
     },
     {
       label: 'Total Requirements',
@@ -89,7 +90,7 @@ function AdminDashboardContent() {
       subtext: stats?.totalRequirements
         ? `${Math.round(((stats.closedRequirements || 0) / stats.totalRequirements) * 100)}% completion`
         : 'Fulfilled contracts',
-      href: '/admin/requirements',
+      href: '/admin/requirements?status=closed',
     },
     {
       label: 'Active Categories',
@@ -145,6 +146,14 @@ function AdminDashboardContent() {
       iconBg: 'bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white',
       badge: stats?.pendingProviderApplications > 0 ? `${stats.pendingProviderApplications} Pending` : null,
       badgeColor: 'bg-indigo-500 text-white',
+    },
+    {
+      href: '/admin/provider-documents',
+      label: 'Provider Documents',
+      description: 'View every KYC document uploaded by providers — Aadhaar, passbook & live photo',
+      icon: FolderOpen,
+      iconColor: 'text-sky-600',
+      iconBg: 'bg-sky-50 group-hover:bg-sky-600 group-hover:text-white',
     },
     {
       href: '/admin/users',
@@ -292,7 +301,7 @@ function AdminDashboardContent() {
                       <p className="mt-0.5 text-xs font-bold text-ink-700 group-hover:text-brand-600 transition-colors">
                         {c.label}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-ink-400 truncate">
+                      <p className="mt-0.5 text-[11px] leading-snug text-ink-400">
                         {c.subtext}
                       </p>
                     </div>

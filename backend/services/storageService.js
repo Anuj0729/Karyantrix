@@ -9,8 +9,15 @@ const {
   getPublicUrl,
   keyFromPublicUrl,
 } = require('../config/objectStorage');
+const {
+  isCloudinaryEnabled,
+  uploadBuffer: uploadBufferToCloudinary,
+  uploadReadStream: uploadReadStreamToCloudinary,
+  deleteByPublicId: deleteCloudinaryAsset,
+  parseCloudinaryUrl,
+} = require('../config/cloudinary');
 
-const STORAGE_DRIVER = isObjectStorageEnabled() ? 's3' : 'local';
+const STORAGE_DRIVER = isCloudinaryEnabled() ? 'cloudinary' : isObjectStorageEnabled() ? 's3' : 'local';
 
 const writeLocalBuffer = async (key, buffer) => {
   const destPath = path.join(UPLOAD_ROOT, key);
@@ -25,6 +32,10 @@ const writeLocalBuffer = async (key, buffer) => {
  * configured (STORAGE_DRIVER=local|s3), and returns its public URL.
  */
 const saveBuffer = async ({ key, buffer, contentType }) => {
+  if (isCloudinaryEnabled()) {
+    const result = await uploadBufferToCloudinary(key, buffer, contentType);
+    return { url: result.secure_url, key, driver: 'cloudinary' };
+  }
   if (isObjectStorageEnabled()) {
     await putObject(key, buffer, contentType);
     return { url: getPublicUrl(key), key, driver: 's3' };
@@ -69,6 +80,11 @@ const chunkedReadStream = (dir, totalChunks) => {
 const assembleChunksToStorage = async ({ tempDir, totalChunks, key, contentType }) => {
   const source = chunkedReadStream(tempDir, totalChunks);
 
+  if (isCloudinaryEnabled()) {
+    const result = await uploadReadStreamToCloudinary(key, source, contentType);
+    return { url: result.secure_url, key, driver: 'cloudinary' };
+  }
+
   if (isObjectStorageEnabled()) {
     await putObject(key, source, contentType);
     return { url: getPublicUrl(key), key, driver: 's3' };
@@ -100,6 +116,11 @@ const assembleChunksToStorage = async ({ tempDir, totalChunks, key, contentType 
 const deleteByUrl = async (url) => {
   if (!url) return;
   try {
+    if (isCloudinaryEnabled()) {
+      const parsed = parseCloudinaryUrl(url);
+      if (parsed) await deleteCloudinaryAsset(parsed.publicId, parsed.resourceType);
+      return;
+    }
     if (isObjectStorageEnabled()) {
       const key = keyFromPublicUrl(url);
       if (key) await deleteObjectByKey(key);

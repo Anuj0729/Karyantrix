@@ -12,6 +12,8 @@ import Button from '../../../components/ui/Button';
 import { Field, TextInput } from '../../../components/ui/Field';
 import { getCategoryIcon, CATEGORY_ICON_SUGGESTIONS } from '../../../lib/categoryIcon';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
 
 const slugify = (text) => text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -242,6 +244,7 @@ function AdminCategoriesServicesContent() {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [categoryToToggle, setCategoryToToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
+  const pager = usePagination(categories);
 
   const load = async () => {
     setLoading(true);
@@ -309,7 +312,7 @@ function AdminCategoriesServicesContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((c) => (
+          {pager.pageItems.map((c) => (
             <CategoryTile
               key={c.id}
               category={c}
@@ -320,6 +323,8 @@ function AdminCategoriesServicesContent() {
           ))}
         </div>
       )}
+
+      {!loading && <Pagination pager={pager} label="categories" />}
 
       <CategoryFormModal
         open={createOpen}

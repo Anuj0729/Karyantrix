@@ -9,6 +9,8 @@ import Badge from '../../../components/ui/Badge';
 import { Skeleton, RowSkeleton } from '../../../components/ui/Skeleton';
 import { CANCELLATION_REASON_LABELS } from '../../../components/CancelBookingModal';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
 
 const fmtINR = (n) => `\u20b9${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const fmtDate = (d) =>
@@ -142,6 +144,8 @@ function AdminCancellationsContent() {
     load();
   };
 
+  const pager = usePagination(bookings, { resetKey: filter });
+
   return (
     <div className="space-y-6">
       <BackButton href="/admin" label="Back to dashboard" />
@@ -203,7 +207,7 @@ function AdminCancellationsContent() {
 
       <div className="space-y-3">
         {loading && Array.from({ length: 3 }).map((_, i) => <RowSkeleton key={i} />)}
-        {!loading && bookings.map((b) => <CancellationRow key={b.id} booking={b} />)}
+        {!loading && pager.pageItems.map((b) => <CancellationRow key={b.id} booking={b} />)}
         {!loading && bookings.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-ink-200 bg-ink-50/40 py-16 px-6 text-center">
             <div className="w-14 h-14 rounded-2xl bg-white border border-ink-100 shadow-soft flex items-center justify-center text-ink-400">
@@ -218,6 +222,8 @@ function AdminCancellationsContent() {
           </div>
         )}
       </div>
+
+      {!loading && <Pagination pager={pager} label="cancellations" />}
     </div>
   );
 }

@@ -1,19 +1,99 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ShieldAlert, Users, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { useToast } from '../../../components/ui/Toast';
 import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
+import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import { RowSkeleton } from '../../../components/ui/Skeleton';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
+
+function DeactivateUserModal({ user, onClose, onConfirmed }) {
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleClose = () => {
+    if (submitting) return;
+    onClose?.();
+  };
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await api.patch(`/admin/users/${user.id}/toggle-active`);
+      toast('User deactivated', { type: 'success' });
+      onConfirmed?.();
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not deactivate this user', { type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={Boolean(user)} onClose={handleClose} size="sm" closeOnOverlayClick={!submitting}>
+      {user && (
+        <>
+          <div className="flex items-center justify-between border-b border-ink-100 px-6 py-5 bg-ink-50/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-soft">
+                <ShieldAlert size={18} aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-bold text-ink-900 tracking-tight">Deactivate account</h2>
+                <p className="text-xs text-ink-500 capitalize">{user.role} account</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Close"
+              disabled={submitting}
+              className="rounded-full p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors disabled:opacity-50"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="space-y-4 px-6 py-5">
+            <p className="text-sm text-ink-700">
+              Are you sure you want to deactivate <span className="font-semibold text-ink-900">{user.name}</span>&apos;s
+              account? They will be logged out immediately and won&apos;t be able to sign in until an admin
+              reactivates the account.
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="secondary" size="md" fullWidth onClick={handleClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button type="button" variant="danger" size="md" fullWidth loading={submitting} onClick={handleConfirm}>
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+const ROLE_FILTERS = ['', 'customer', 'provider', 'admin'];
 
 function AdminUsersContent() {
+  const searchParams = useSearchParams();
+  const roleParam = ROLE_FILTERS.includes(searchParams.get('role')) ? searchParams.get('role') : '';
+
   const [users, setUsers] = useState([]);
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState(roleParam);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deactivateTarget, setDeactivateTarget] = useState(null);
   const { toast } = useToast();
 
   const load = () => {
@@ -24,16 +104,29 @@ function AdminUsersContent() {
       .finally(() => setLoading(false));
   };
 
+  // Dashboard cards link here with ?role=customer / ?role=provider; follow the URL if it changes while mounted.
+  useEffect(() => {
+    setRoleFilter(roleParam);
+  }, [roleParam]);
+
   useEffect(() => {
     load();
   }, [roleFilter]);
 
   useRefetchOnFocus(load);
 
-  const toggleActive = async (id) => {
+  const activateUser = async (id) => {
     await api.patch(`/admin/users/${id}/toggle-active`);
-    toast('User status updated', { type: 'success' });
+    toast('User activated', { type: 'success' });
     load();
+  };
+
+  const handleStatusToggle = (u) => {
+    if (u.is_active) {
+      setDeactivateTarget(u);
+    } else {
+      activateUser(u.id);
+    }
   };
 
   const approve = async (id) => {
@@ -51,6 +144,8 @@ function AdminUsersContent() {
       u.phone?.includes(term)
     );
   });
+
+  const pager = usePagination(filteredUsers, { resetKey: `${roleFilter}|${search}` });
 
   return (
     <div className="space-y-6">
@@ -72,7 +167,7 @@ function AdminUsersContent() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {['', 'customer', 'provider', 'admin'].map((r) => (
+        {ROLE_FILTERS.map((r) => (
           <button
             key={r}
             onClick={() => setRoleFilter(r)}
@@ -105,7 +200,7 @@ function AdminUsersContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filteredUsers.map((u) => (
+                {pager.pageItems.map((u) => (
                   <tr key={u.id} className="transition-colors hover:bg-ink-50/40">
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
@@ -167,7 +262,7 @@ function AdminUsersContent() {
                         )}
                         <button
                           type="button"
-                          onClick={() => toggleActive(u.id)}
+                          onClick={() => handleStatusToggle(u)}
                           className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
                             u.is_active
                               ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
@@ -192,10 +287,25 @@ function AdminUsersContent() {
           )}
         </Card>
       )}
+
+      {!loading && <Pagination pager={pager} label="accounts" />}
+
+      <DeactivateUserModal
+        user={deactivateTarget}
+        onClose={() => setDeactivateTarget(null)}
+        onConfirmed={() => {
+          setDeactivateTarget(null);
+          load();
+        }}
+      />
     </div>
   );
 }
 
 export default function AdminUsersPage() {
-  return <AdminUsersContent />;
+  return (
+    <Suspense fallback={null}>
+      <AdminUsersContent />
+    </Suspense>
+  );
 }

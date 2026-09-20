@@ -40,6 +40,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../lib/api';
 import useRefetchOnFocus from '../../lib/useRefetchOnFocus';
+import useSwitchToProvider from '../../lib/useSwitchToProvider';
 const RequirementComposerModal = dynamic(() => import('../../components/RequirementComposerModal'));
 
 const avatarUrl = (url) => (!url ? null : url);
@@ -141,6 +142,26 @@ function ApplicationStatusCard() {
           </div>
         )}
       </div>
+    </Card>
+  );
+}
+
+function SwitchBackToProviderCard() {
+  const { switching, switchToProvider } = useSwitchToProvider();
+
+  return (
+    <Card className="relative overflow-hidden border-brand-100 bg-gradient-to-br from-brand-50 via-white to-accent-50 p-5" hover={false}>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+        <BadgeCheck size={12} aria-hidden="true" /> Provider account
+      </span>
+      <h2 className="mt-2 font-semibold text-ink-900">Ready to offer services again?</h2>
+      <p className="mb-4 mt-1 text-sm text-ink-600">
+        Your approved provider profile, reviews and history are still here. Switch back to start receiving
+        requirements and placing bids again &mdash; no new application needed.
+      </p>
+      <Button loading={switching} onClick={switchToProvider} icon={<ArrowRight size={16} aria-hidden="true" />}>
+        Switch to provider account
+      </Button>
     </Card>
   );
 }
@@ -670,14 +691,16 @@ function AccountTab() {
         <ChangePasswordCard />
       </div>
 
-      {user.role === 'customer' && (
+      {user.role === 'customer' && user.can_switch_to_provider && <SwitchBackToProviderCard />}
+
+      {user.role === 'customer' && !user.can_switch_to_provider && (
         <div>
           <SectionLabel>Provider application</SectionLabel>
           <ApplicationStatusCard />
         </div>
       )}
 
-      {user.role === 'customer' && (
+      {user.role === 'customer' && !user.can_switch_to_provider && (
         <Card className="relative overflow-hidden border-brand-100 bg-gradient-to-br from-brand-50 via-white to-accent-50 p-5" hover={false}>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
             <Sparkles size={12} aria-hidden="true" /> Grow your income

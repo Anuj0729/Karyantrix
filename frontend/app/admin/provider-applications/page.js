@@ -8,6 +8,8 @@ import { RowSkeleton } from '../../../components/ui/Skeleton';
 import ProviderApplicationCard from '../../../components/admin/ProviderApplicationCard';
 import ProviderApplicationModal from '../../../components/admin/ProviderApplicationModal';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
 
 const FILTERS = [
   { key: 'pending_review', label: 'Pending review' },
@@ -49,6 +51,8 @@ function AdminProviderApplicationsContent() {
     const title = a.professional_title?.toLowerCase() || '';
     return name.includes(term) || email.includes(term) || title.includes(term);
   });
+
+  const pager = usePagination(filtered, { resetKey: `${status}|${search}` });
 
   const handleReview = async (userId, action, feedback) => {
     setSubmitting(action);
@@ -109,7 +113,7 @@ function AdminProviderApplicationsContent() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading && Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)}
         {!loading &&
-          filtered.map((a) => (
+          pager.pageItems.map((a) => (
             <ProviderApplicationCard key={a.id} application={a} onOpen={() => setSelected(a)} />
           ))}
       </div>
@@ -121,6 +125,8 @@ function AdminProviderApplicationsContent() {
           <p className="text-xs text-ink-400">Try a different filter or search term.</p>
         </div>
       )}
+
+      {!loading && <Pagination pager={pager} label="applications" />}
 
       <ProviderApplicationModal
         application={selected}

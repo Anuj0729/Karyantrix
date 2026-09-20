@@ -14,6 +14,8 @@ import { Skeleton } from '../../../../components/ui/Skeleton';
 import { getCategoryIcon } from '../../../../lib/categoryIcon';
 import { getServiceIcon } from '../../../../lib/serviceIcon';
 import useRefetchOnFocus from '../../../../lib/useRefetchOnFocus';
+import usePagination from '../../../../lib/usePagination';
+import Pagination from '../../../../components/admin/Pagination';
 
 const EMPTY_FORM = { name: '', description: '' };
 
@@ -205,6 +207,7 @@ function AdminCategoryServicesContent() {
   const [activatingServiceId, setActivatingServiceId] = useState(null);
   const [categoryToggling, setCategoryToggling] = useState(false);
   const [toggleModalOpen, setToggleModalOpen] = useState(false);
+  const pager = usePagination(services, { resetKey: id });
 
   const load = async () => {
     setLoading(true);
@@ -365,7 +368,7 @@ function AdminCategoryServicesContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {services.map((s, idx) => {
+          {pager.pageItems.map((s, idx) => {
             const ServiceIcon = getServiceIcon(s.name, category.icon);
             return (
               <motion.div
@@ -454,6 +457,8 @@ function AdminCategoryServicesContent() {
           })}
         </div>
       )}
+
+      {!loading && <Pagination pager={pager} label="services" />}
 
       <ServiceFormModal open={createOpen} onClose={() => setCreateOpen(false)} categoryId={id} onSaved={load} />
       <ServiceFormModal

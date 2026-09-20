@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createRequirement,
+  getRequirementById,
   getFeed,
   getMyRequirements,
   expressInterest,
@@ -16,6 +17,7 @@ const router = express.Router();
 
 router.get('/', optionalAuth, getFeed);
 router.get('/mine', protect, authorize('customer'), getMyRequirements);
+router.get('/:id', optionalAuth, getRequirementById);
 
 router.post('/', protect, authorize('customer'), createRequirement);
 router.put('/:id', protect, authorize('customer'), updateRequirement);
@@ -27,7 +29,7 @@ router.patch('/:id/close', protect, authorize('customer'), closeRequirement);
 
 router.get('/bids/mine', protect, authorize('provider'), getMyBids);
 router.post('/:id/bids', protect, authorize('provider'), placeBid);
-router.get('/:id/bids', protect, authorize('customer'), getBids);
+router.get('/:id/bids', protect, authorize('customer', 'provider'), getBids);
 router.patch('/:id/bids/:bidId/accept', protect, authorize('customer'), acceptBid);
 
 module.exports = router;

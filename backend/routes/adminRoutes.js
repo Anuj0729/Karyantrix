@@ -7,6 +7,7 @@ const {
   getApplications,
   reviewApplication,
   getAllRequirements,
+  getProviderDocuments,
   getCancelledBookings,
   getCancellationAnalytics,
 } = require('../controllers/adminController');
@@ -52,6 +53,7 @@ router.patch('/providers/:id/approve', approveProvider);
 router.get('/applications', getApplications);
 router.patch('/applications/:userId/review', reviewApplication);
 router.get('/requirements', getAllRequirements);
+router.get('/provider-documents', getProviderDocuments);
 
 router.get('/cancellations', getCancelledBookings);
 router.get('/cancellations/analytics', getCancellationAnalytics);

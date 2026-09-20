@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Award, CheckCircle2, HeartHandshake, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const COLUMNS = [
   {
@@ -52,7 +53,13 @@ const HIGHLIGHTS = [
 export default function Footer() {
 
   const pathname = usePathname();
+  const { user } = useAuth();
   if (pathname?.startsWith('/messages')) return null;
+
+  // A customer who already has an approved provider account switches back instead of applying again.
+  const columns = user?.can_switch_to_provider
+    ? COLUMNS.map((col) => ({ ...col, links: col.links.filter((l) => l.href !== '/become-provider') }))
+    : COLUMNS;
 
   return (
     <footer className="mt-20 border-t border-ink-800 bg-ink-950 text-ink-300">
@@ -104,7 +111,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {COLUMNS.map((col) => (
+        {columns.map((col) => (
           <div key={col.title} className="space-y-3">
             <p className="text-xs font-bold uppercase tracking-wider text-white">{col.title}</p>
             <ul className="space-y-2.5">

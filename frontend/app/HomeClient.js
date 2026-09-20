@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  Briefcase,
   CheckCircle2,
   ChevronRight,
   Gavel,
@@ -73,6 +74,33 @@ const HOW_IT_WORKS = [
     step: '03',
     title: 'Hire & relax',
     desc: 'Chat, track progress in real-time, and pay safely upon completion.',
+  },
+];
+
+const ABOUT_CATEGORIES = ['Home repairs', 'Tutoring', 'Wellness', 'Events', 'Everyday tasks'];
+
+const ABOUT_AUDIENCES = [
+  {
+    icon: Users,
+    title: 'For customers',
+    points: [
+      'Post your requirement for free and let local professionals come to you',
+      'Compare bids, ratings and profiles side by side before you decide',
+      'Chat and track progress in real time, from first hello to finished job',
+      'Pay through escrow, released only when you are satisfied',
+      'Raise a report or support ticket anytime if something goes wrong',
+    ],
+  },
+  {
+    icon: Briefcase,
+    title: 'For service providers',
+    points: [
+      'Apply once. Our team reviews your Aadhaar, bank passbook and live photo',
+      'Bid on real requirements within your own service radius',
+      'Set your own rates, availability and service area',
+      'Build a lasting reputation with reviews from genuine bookings',
+      'Get paid securely through the platform',
+    ],
   },
 ];
 
@@ -226,7 +254,7 @@ export default function HomeClient({ initialCategories = [], initialProviders = 
 
   return (
     <div className="space-y-16 sm:space-y-20">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-ink-950 via-ink-900 to-ink-950 px-6 py-16 text-white shadow-modal sm:px-12 sm:py-20 lg:py-24">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-950 via-[#2F2677] to-brand-950 px-6 py-16 text-white shadow-modal sm:px-12 sm:py-20 lg:py-24">
         <div className="absolute inset-0 bg-hero-radial opacity-70" aria-hidden="true" />
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -263,7 +291,7 @@ export default function HomeClient({ initialCategories = [], initialProviders = 
 
             <h1 className="mt-6 font-display text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-[3.5rem]">
               Kaam Aapka, <br />
-              <span className="gradient-text">Zimmedari Hamari</span>
+              <span className="gradient-text-on-dark">Zimmedari Hamari</span>
             </h1>
 
             <p className="mt-6 max-w-xl text-base text-ink-200 sm:text-lg leading-relaxed">
@@ -280,13 +308,13 @@ export default function HomeClient({ initialCategories = [], initialProviders = 
               className="mt-8 flex max-w-lg items-center rounded-2xl border border-white/20 bg-white/10 p-1.5 shadow-2xl backdrop-blur-md focus-within:border-brand-400 focus-within:bg-white/15 transition-all"
             >
               <div className="flex flex-1 items-center gap-3 px-3">
-                <Search size={18} className="text-ink-400 shrink-0" />
+                <Search size={18} className="text-ink-300 shrink-0" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="What service do you need? (e.g. Electrician, Tutor)"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-ink-400 focus:outline-none"
+                  className="w-full bg-transparent text-sm text-white placeholder:text-ink-300 focus:outline-none"
                 />
               </div>
               <Button type="submit" variant="accent" size="md">
@@ -392,6 +420,73 @@ export default function HomeClient({ initialCategories = [], initialProviders = 
           );
         })}
       </section>
+
+      <motion.section
+        {...fadeUp}
+        aria-labelledby="about-karyantrix"
+        className="rounded-3xl border border-ink-100 bg-white p-8 shadow-card sm:p-12"
+      >
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brand-600">
+              <Sparkles size={13} aria-hidden="true" /> About Karyantrix
+            </p>
+            <h2
+              id="about-karyantrix"
+              className="font-display text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl"
+            >
+              Local help you can trust, without the chasing
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-ink-600">
+              Karyantrix is a service marketplace that connects people who need work done with skilled professionals
+              nearby. Instead of calling around for quotes, you post what you need once, verified providers bid for
+              it, and you choose on price, ratings and profile.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-ink-600">
+              Our promise is our tagline,{' '}
+              <span className="font-semibold text-ink-900">Kaam Aapka, Zimmedari Hamari</span>: your work, our
+              responsibility. Every provider is verified before they can bid, and every payment is protected until
+              the job is done.
+            </p>
+
+            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-ink-400">What you can hire for</p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {ABOUT_CATEGORIES.map((c) => (
+                <span
+                  key={c}
+                  className="rounded-full border border-brand-200/70 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {ABOUT_AUDIENCES.map((a) => {
+              const Icon = a.icon;
+              return (
+                <div key={a.title} className="rounded-2xl border border-ink-100 bg-ink-50/60 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100/80 text-brand-600 ring-1 ring-inset ring-brand-200/50">
+                      <Icon size={18} aria-hidden="true" />
+                    </div>
+                    <h3 className="font-display text-sm font-bold text-ink-900">{a.title}</h3>
+                  </div>
+                  <ul className="mt-4 space-y-2.5">
+                    {a.points.map((p) => (
+                      <li key={p} className="flex items-start gap-2 text-xs leading-relaxed text-ink-600">
+                        <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-trust-500" aria-hidden="true" />
+                        <span>{p}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.section>
 
       <motion.section {...fadeUp} className="pt-2">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -548,7 +643,7 @@ export default function HomeClient({ initialCategories = [], initialProviders = 
         </>
       )}
 
-      {(!user || user.role === 'customer') && (
+      {(!user || (user.role === 'customer' && !user.can_switch_to_provider)) && (
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}

@@ -11,6 +11,8 @@ import StatusBadge from '../../../components/StatusBadge';
 import { RowSkeleton } from '../../../components/ui/Skeleton';
 import { REPORT_REASONS } from '../../../components/ReportModal';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
 
 const TABS = [
   { key: 'pending', label: 'Pending' },
@@ -74,6 +76,8 @@ function AdminReportsContent() {
 
   useRefetchOnFocus(load);
 
+  const pager = usePagination(reports, { resetKey: tab });
+
   return (
     <div className="space-y-6">
       <BackButton href="/admin" label="Back to dashboard" />
@@ -107,8 +111,10 @@ function AdminReportsContent() {
             <p className="text-xs text-ink-400">All reports under &quot;{TABS.find((t) => t.key === tab)?.label}&quot; are clear.</p>
           </div>
         )}
-        {!loading && reports.map((r) => <ReportRow key={r.id} report={r} />)}
+        {!loading && pager.pageItems.map((r) => <ReportRow key={r.id} report={r} />)}
       </div>
+
+      {!loading && <Pagination pager={pager} label="reports" />}
     </div>
   );
 }

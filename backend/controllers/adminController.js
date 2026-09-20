@@ -44,7 +44,9 @@ const getDashboardStats = async (req, res, next) => {
 const getUsers = async (req, res, next) => {
   try {
     const { role } = req.query;
+    // The signed-in admin never sees their own account in this list (other admins still do).
     const where = role ? { role } : {};
+    where._id = { $ne: req.user._id };
     const users = await User.find(where).sort({ createdAt: -1 });
 
     const providerIds = users.filter((u) => u.role === 'provider').map((u) => u.id);
@@ -58,6 +60,52 @@ const getUsers = async (req, res, next) => {
     });
 
     res.json({ users: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const PROVIDER_DOCUMENT_TYPES = [
+  { key: 'aadhar_front', label: 'Aadhaar card - front' },
+  { key: 'aadhar_back', label: 'Aadhaar card - back' },
+  { key: 'passbook_front', label: 'Bank passbook - front page' },
+  { key: 'live_photo', label: 'Live profile photo' },
+];
+
+// Every provider / applicant with the documents they uploaded, so admins can review them in one place.
+const getProviderDocuments = async (req, res, next) => {
+  try {
+    const profiles = await ProviderProfile.find({})
+      .select('user kyc_documents application_status verification_status professional_title updatedAt')
+      .populate({ path: 'user', select: 'id name email phone avatar_url role' })
+      .sort({ updatedAt: -1 });
+
+    const providers = profiles
+      .filter((p) => p.user)
+      .map((p) => {
+        const kyc = p.kyc_documents || {};
+        const documents = PROVIDER_DOCUMENT_TYPES.map(({ key, label }) => ({ key, label, url: kyc[key] || null }));
+        return {
+          id: p.id,
+          user: {
+            id: p.user.id,
+            name: p.user.name,
+            email: p.user.email,
+            phone: p.user.phone,
+            avatar_url: p.user.avatar_url,
+            role: p.user.role,
+          },
+          professional_title: p.professional_title,
+          application_status: p.application_status,
+          verification_status: p.verification_status,
+          updatedAt: p.updatedAt,
+          documents,
+          uploaded_count: documents.filter((d) => d.url).length,
+          total_count: documents.length,
+        };
+      });
+
+    res.json({ providers });
   } catch (error) {
     next(error);
   }
@@ -280,6 +328,7 @@ module.exports = {
   getApplications,
   reviewApplication,
   getAllRequirements,
+  getProviderDocuments,
   getCancelledBookings,
   getCancellationAnalytics,
 };

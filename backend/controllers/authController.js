@@ -25,14 +25,7 @@ const { saveBuffer, deleteByUrl } = require('../services/storageService');
 const OTP_TTL_MS = 5 * 60 * 1000;
 const PENDING_TTL_MS = 10 * 60 * 1000;
 
-const publicUser = (user) => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  phone: user.phone,
-  role: user.role,
-  avatar_url: user.avatar_url,
-});
+const { publicUser, canSwitchToProvider } = require('../utils/userPayload');
 
 const findUserByIdentifier = (method, value) => {
   return User.findOne(method === 'email' ? { email: value } : { phone: value });
@@ -147,7 +140,7 @@ const verifyRegister = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.status(201).json({ message: 'Account created and verified successfully', accessToken, refreshToken, user: publicUser(user) });
+    res.status(201).json({ message: 'Account created and verified successfully', accessToken, refreshToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -179,7 +172,7 @@ const login = async (req, res, next) => {
     const accessToken = generateAccessToken(foundUser);
     const refreshToken = generateRefreshToken(foundUser);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: publicUser(foundUser) });
+    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: await publicUser(foundUser) });
   } catch (error) {
     next(error);
   }
@@ -251,7 +244,7 @@ const googleAuth = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Signed in with Google successfully', accessToken, refreshToken, user: publicUser(user) });
+    res.json({ message: 'Signed in with Google successfully', accessToken, refreshToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -305,7 +298,7 @@ const verifyLoginOtp = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     setRefreshCookie(res, refreshToken);
-    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: publicUser(user) });
+    res.json({ message: 'Logged in successfully', accessToken, refreshToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -446,7 +439,8 @@ const getMe = async (req, res, next) => {
     if (req.user.role === 'provider') {
       profile = await ProviderProfile.findOne({ user: req.user.id });
     }
-    res.json({ user: req.user, providerProfile: profile });
+    const user = { ...req.user.toJSON(), can_switch_to_provider: await canSwitchToProvider(req.user) };
+    res.json({ user, providerProfile: profile });
   } catch (error) {
     next(error);
   }

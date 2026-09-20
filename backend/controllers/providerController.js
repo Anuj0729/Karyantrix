@@ -1,6 +1,22 @@
-const { ProviderProfile, User, Service, Category, Notification } = require('../models');
+const { ProviderProfile, User, Service, Category, Notification, Booking, Bid } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
 const { resolveViewerRadiusKm, parseViewerCoords, serializeGeoDoc } = require('../utils/geo');
+const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+const { hasApprovedProviderProfile, canSwitchToProvider } = require('../utils/userPayload');
+
+const REFRESH_TOKEN_EXPIRES_MS = process.env.REFRESH_TOKEN_EXPIRES_MS ? parseInt(process.env.REFRESH_TOKEN_EXPIRES_MS, 10) : 7 * 24 * 60 * 60 * 1000;
+const setRefreshCookie = (res, token) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('refreshToken', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'None' : 'Lax',
+    maxAge: REFRESH_TOKEN_EXPIRES_MS,
+    path: '/',
+  });
+};
+
+const ACTIVE_BOOKING_STATUSES = ['awaiting_advance', 'in_progress', 'work_completed'];
 
 const REQUIRED_APPLICATION_FIELDS = [
   { key: 'professional_title', label: 'Professional title' },
@@ -95,6 +111,12 @@ const becomeProvider = async (req, res, next) => {
     if (user.role !== 'customer') {
       return res.status(403).json({ message: 'This account type cannot apply to become a service provider' });
     }
+    if (await hasApprovedProviderProfile(user.id)) {
+      return res.status(400).json({
+        message: 'You already have an approved provider account. Switch back to it instead of applying again.',
+        can_switch_to_provider: true,
+      });
+    }
 
     let profile = await ProviderProfile.findOneAndUpdate(
       { user: user.id },
@@ -108,6 +130,98 @@ const becomeProvider = async (req, res, next) => {
 
     const meta = await buildApplicationMeta(profile);
     res.json({ message: 'Provider application started', profile, ...meta });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const switchToCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.role !== 'provider') {
+      return res.status(400).json({ message: 'Only provider accounts can switch to a customer account' });
+    }
+
+    const activeBookingCount = await Booking.countDocuments({
+      provider: user.id,
+      status: { $in: ACTIVE_BOOKING_STATUSES },
+    });
+    if (activeBookingCount > 0) {
+      return res.status(400).json({
+        message: 'You have active bookings in progress. Please complete or cancel them before switching to a customer account.',
+      });
+    }
+
+    await Bid.updateMany({ provider: user.id, status: 'pending' }, { $set: { status: 'rejected' } });
+
+    user.role = 'customer';
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    // is_approved is the "live" flag used by provider search and requirement notifications, so turning it
+    // off pauses the provider. application_status stays 'approved' so they can switch back without re-applying.
+    await ProviderProfile.findOneAndUpdate(
+      { user: user.id },
+      { $set: { is_available: false, is_online: false, is_approved: false, application_status: 'approved' } }
+    );
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      message: 'Your account has been switched to a customer account',
+      accessToken,
+      refreshToken,
+      user: { ...user.toJSON(), can_switch_to_provider: await canSwitchToProvider(user) },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const switchToProvider = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.role === 'provider') {
+      return res.status(400).json({ message: 'You are already using your provider account' });
+    }
+    if (user.role !== 'customer') {
+      return res.status(403).json({ message: 'This account type cannot switch to a provider account' });
+    }
+    if (user.account_status !== 'active') {
+      return res.status(403).json({ message: 'Your account is not active, so it cannot be switched to a provider account' });
+    }
+
+    if (!(await hasApprovedProviderProfile(user.id))) {
+      return res.status(400).json({
+        message: 'You do not have an approved provider account to switch back to. Please apply to become a provider first.',
+      });
+    }
+
+    user.role = 'provider';
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    await ProviderProfile.findOneAndUpdate(
+      { user: user.id },
+      { $set: { is_approved: true, is_available: true, application_status: 'approved' } }
+    );
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      message: 'You are back on your provider account',
+      accessToken,
+      refreshToken,
+      user: { ...user.toJSON(), can_switch_to_provider: false },
+    });
   } catch (error) {
     next(error);
   }
@@ -337,6 +451,8 @@ module.exports = {
   getMyProfile,
   updateMyProfile,
   becomeProvider,
+  switchToCustomer,
+  switchToProvider,
   getMyApplication,
   saveApplicationStep,
   submitApplication,

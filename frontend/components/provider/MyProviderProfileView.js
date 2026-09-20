@@ -38,6 +38,7 @@ import Avatar from './Avatar';
 import StarRating from './StarRating';
 const AddCertificationModal = dynamic(() => import('./AddCertificationModal'));
 const AddPortfolioModal = dynamic(() => import('./AddPortfolioModal'));
+const SwitchToCustomerModal = dynamic(() => import('./SwitchToCustomerModal'));
 
 const avatarUrl = (url) => (!url ? null : url);
 
@@ -134,6 +135,19 @@ const NameUpdateCard = () => {
         </form>
       )}
     </Card>
+  );
+};
+
+const SwitchToCustomerCard = () => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className='fixed z-40 top-20 right-10'>
+        <Button size="md" variant="secondary" onClick={() => setOpen(true)}>
+          Switch to customer account
+        </Button>
+      <SwitchToCustomerModal open={open} onClose={() => setOpen(false)} />
+    </div>
   );
 };
 
@@ -441,6 +455,8 @@ export default function MyProviderProfileView({ profile, services, reviews, onEd
               </button>
             </div>
           </div>
+          
+          <SwitchToCustomerCard />
         </div>
       </motion.div>
 

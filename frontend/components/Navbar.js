@@ -9,12 +9,19 @@ import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import ChatButton from './chat/ChatButton';
 import Button from './ui/Button';
+import useSwitchToProvider from '../lib/useSwitchToProvider';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { switching, switchToProvider } = useSwitchToProvider();
+
+  const handleSwitchToProvider = async () => {
+    setMobileOpen(false);
+    await switchToProvider();
+  };
 
   const handleLogout = () => {
     logout();
@@ -155,7 +162,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {user.role === 'customer' && (
+              {user.role === 'customer' && !user.can_switch_to_provider && (
                 <Link
                   href="/become-provider"
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
@@ -166,6 +173,17 @@ export default function Navbar() {
                 >
                   Become Provider
                 </Link>
+              )}
+
+              {user.role === 'customer' && user.can_switch_to_provider && (
+                <button
+                  type="button"
+                  onClick={handleSwitchToProvider}
+                  disabled={switching}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg text-accent-600 transition-colors hover:bg-accent-50/60 disabled:opacity-60"
+                >
+                  {switching ? 'Switching…' : 'Switch to Provider'}
+                </button>
               )}
 
               <div className="h-5 w-px bg-ink-200" />
@@ -292,7 +310,7 @@ export default function Navbar() {
                       Help &amp; Support
                     </Link>
                   )}
-                  {user.role === 'customer' && (
+                  {user.role === 'customer' && !user.can_switch_to_provider && (
                     <Link
                       href="/become-provider"
                       onClick={() => setMobileOpen(false)}
@@ -300,6 +318,16 @@ export default function Navbar() {
                     >
                       Become a Provider
                     </Link>
+                  )}
+                  {user.role === 'customer' && user.can_switch_to_provider && (
+                    <button
+                      type="button"
+                      onClick={handleSwitchToProvider}
+                      disabled={switching}
+                      className="rounded-xl bg-accent-50 px-3.5 py-2.5 text-left text-sm font-semibold text-accent-700 hover:bg-accent-100/70 disabled:opacity-60"
+                    >
+                      {switching ? 'Switching…' : 'Switch to Provider'}
+                    </button>
                   )}
                   <Link
                     href="/profile"

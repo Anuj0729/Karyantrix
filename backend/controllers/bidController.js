@@ -1,6 +1,7 @@
 const { Bid, Requirement, Notification, Review, Booking } = require('../models');
 const { emitToUser, emitBroadcast } = require('../sockets/socketHandler');
 const { computeSplit } = require('../utils/payments');
+const { canProviderViewRequirement } = require('../utils/requirementAccess');
 
 const DEFAULT_ADVANCE_PERCENT = 20;
 
@@ -46,6 +47,9 @@ const placeBid = async (req, res, next) => {
       requirement_id: requirement.id,
       bid: populated,
     });
+    // Providers who are viewing this requirement's bids refetch (the API re-checks who may see them).
+    // Deliberately carries only the id: bid details must not be pushed to providers who can't see the post.
+    emitBroadcast('requirement_bids_changed', { requirement_id: requirement.id });
     await notify(
       requirement.customer,
       'New bid on your post',
@@ -59,10 +63,40 @@ const placeBid = async (req, res, next) => {
   }
 };
 
+// Providers who can see a post can see everyone's bids on it, so they know what they're competing against.
+const getBidsForProvider = async (requirement, req, res) => {
+  if (!(await canProviderViewRequirement(requirement, req.user.id))) {
+    return res.status(403).json({ message: 'This requirement is not available to you' });
+  }
+
+  const allBids = await Bid.find({ requirement: requirement.id })
+    .populate({ path: 'provider', select: 'id name avatar_url' })
+    .sort({ createdAt: -1 });
+
+  // A provider can revise their bid by posting a new one; only their latest is a live offer.
+  const seen = new Set();
+  const bids = [];
+  allBids.forEach((bid) => {
+    const bidderId = String(bid.provider?.id || bid.provider);
+    if (seen.has(bidderId)) return;
+    seen.add(bidderId);
+    bids.push({ ...bid.toJSON(), is_mine: bidderId === String(req.user.id) });
+  });
+
+  return res.json({
+    requirement_id: requirement.id,
+    budget: requirement.budget,
+    requirement_status: requirement.status,
+    viewer_role: 'provider',
+    bids,
+  });
+};
+
 const getBids = async (req, res, next) => {
   try {
     const requirement = await Requirement.findById(req.params.id);
     if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
+    if (req.user.role === 'provider') return await getBidsForProvider(requirement, req, res);
     if (requirement.customer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You can only view bids on your own requirement' });
     }

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { Requirement, Notification, ProviderProfile, Category, UploadSession, Bid, User, Review, Booking } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
+const { canProviderViewRequirement } = require('../utils/requirementAccess');
 
 const serializeAggregateDoc = (obj) => {
   const plain = JSON.parse(JSON.stringify(obj));
@@ -209,6 +210,58 @@ const createRequirement = async (req, res, next) => {
 
     res.status(201).json({ message: 'Requirement posted', requirement: populated });
   } catch (error) {
+    next(error);
+  }
+};
+
+const getRequirementById = async (req, res, next) => {
+  try {
+    const requirement = await Requirement.findById(req.params.id)
+      .populate({ path: 'customer', select: 'id name avatar_url is_verified' })
+      .populate({ path: 'categories', select: 'id name slug' });
+    if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
+
+    const viewerRole = req.user?.role;
+    const viewerId = req.user?.id ? String(req.user.id) : null;
+    const isOwner = viewerRole === 'customer' && String(requirement.customer.id) === viewerId;
+    const isAdmin = viewerRole === 'admin';
+
+    // A booking request targeted at one specific provider stays private to that provider,
+    // the customer who sent it, and admins - mirrors the visibility rules in getFeed().
+    if (requirement.target_provider && !isAdmin && !isOwner) {
+      const isTargetedProvider = viewerRole === 'provider' && String(requirement.target_provider) === viewerId;
+      if (!isTargetedProvider) {
+        return res.status(404).json({ message: 'Requirement not found' });
+      }
+    }
+
+    if (viewerRole === 'provider' && !isAdmin) {
+      const allowed = await canProviderViewRequirement(requirement, viewerId);
+      if (!allowed) {
+        return res.status(403).json({ message: 'This requirement is not available to you' });
+      }
+    }
+
+    const json = requirement.toJSON();
+
+    const { lat, lng } = req.query;
+    const hasQueryLocation = lat !== undefined && lng !== undefined && lat !== '' && lng !== '';
+    if (hasQueryLocation && typeof requirement.location?.lat === 'number' && typeof requirement.location?.lng === 'number') {
+      const viewerLat = Number(lat);
+      const viewerLng = Number(lng);
+      if (!Number.isNaN(viewerLat) && !Number.isNaN(viewerLng)) {
+        json.distance_km =
+          Math.round(distanceKm(viewerLat, viewerLng, requirement.location.lat, requirement.location.lng) * 10) / 10;
+      }
+    }
+
+    json.is_owner = isOwner;
+
+    res.json({ requirement: json });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(404).json({ message: 'Requirement not found' });
+    }
     next(error);
   }
 };
@@ -560,6 +613,7 @@ const deleteRequirement = async (req, res, next) => {
 
 module.exports = {
   createRequirement,
+  getRequirementById,
   getFeed,
   getMyRequirements,
   expressInterest,

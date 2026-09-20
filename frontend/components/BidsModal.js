@@ -122,6 +122,139 @@ function ProviderBidForm({ requirement, existingBid, onPlaced }) {
   );
 }
 
+// What a provider sees under the bid form: every provider's current bid on this requirement.
+function ProviderBidsList({ requirement, refreshKey }) {
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = (silent = false) => {
+    if (!silent) setLoading(true);
+    api
+      .get(`/requirements/${requirement.id}/bids`)
+      .then(({ data }) => {
+        setBids(data.bids || []);
+        setError('');
+      })
+      .catch((err) => setError(err.response?.data?.message || 'Could not load the bids on this requirement'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, [requirement.id, refreshKey]);
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_token') : null;
+    const socket = getSocket(token);
+    if (!socket) return undefined;
+
+    // These events only say "something changed on this requirement"; the list itself is always refetched
+    // from the API, which decides what this provider is allowed to see.
+    const refresh = (payload) => {
+      if (payload?.requirement_id !== requirement.id) return;
+      load(true);
+    };
+    socket.on('requirement_bids_changed', refresh);
+    socket.on('requirement_closed', refresh);
+    socket.on('bid_status_changed', refresh);
+
+    return () => {
+      socket.off('requirement_bids_changed', refresh);
+      socket.off('requirement_closed', refresh);
+      socket.off('bid_status_changed', refresh);
+    };
+  }, [requirement.id]);
+
+  const lowest = bids.length > 1 ? Math.min(...bids.map((b) => b.amount)) : null;
+
+  return (
+    <section aria-labelledby="bids-so-far" className="border-t border-ink-100 pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="bids-so-far" className="flex items-center gap-2 font-display text-sm font-bold text-ink-900">
+          Bids so far
+          {!loading && !error && (
+            <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">
+              {bids.length}
+            </span>
+          )}
+        </h3>
+        {lowest !== null && (
+          <span className="text-[11px] text-ink-500">
+            Lowest bid <span className="font-semibold text-ink-800">₹{lowest.toLocaleString('en-IN')}</span>
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-[11px] text-ink-400">
+        Visible to every provider who can see this requirement, including your own bid.
+      </p>
+
+      <div className="mt-4">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={22} />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-dashed border-ink-200 bg-ink-50/50 p-5 text-center text-xs text-ink-500">
+            {error}
+          </div>
+        ) : bids.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-ink-200 bg-ink-50/50 p-6 text-center">
+            <p className="text-xs font-medium text-ink-500">No bids yet.</p>
+            <p className="mt-1 text-[11px] text-ink-400">Be the first to send a quote for this job.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {bids.map((bid) => (
+              <div
+                key={bid.id}
+                className={`flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-soft ${
+                  bid.is_mine ? 'border-brand-300 ring-1 ring-brand-200/60' : 'border-ink-200/80'
+                }`}
+              >
+                <img
+                  src={avatarUrl(bid.provider?.avatar_url) || AVATAR_FALLBACK}
+                  alt={bid.provider?.name || 'Provider'}
+                  className="h-10 w-10 shrink-0 rounded-2xl object-cover ring-2 ring-ink-100 shadow-soft"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink-900">
+                      <span className="truncate">{bid.provider?.name || 'Provider'}</span>
+                      {bid.is_mine && (
+                        <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
+                          You
+                        </span>
+                      )}
+                    </p>
+                    <span className="shrink-0 rounded-lg border border-brand-100/60 bg-brand-50 px-2.5 py-0.5 font-display text-sm font-bold text-brand-600">
+                      ₹{bid.amount?.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  {bid.message && (
+                    <p className="mt-1.5 rounded-xl border border-ink-100 bg-ink-50/60 p-2.5 text-xs leading-relaxed text-ink-600">
+                      {bid.message}
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <StatusBadge status={bid.status} kind="bid" />
+                    {lowest !== null && bid.amount === lowest && (
+                      <span className="rounded-full bg-trust-50 px-2 py-0.5 text-[10px] font-bold text-trust-700">
+                        Lowest
+                      </span>
+                    )}
+                    <span className="text-[11px] text-ink-400">{timeAgo(bid.createdAt)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function BidsList({ requirement, onRequirementUpdated }) {
   const { toast } = useToast();
   const [bids, setBids] = useState([]);
@@ -484,6 +617,7 @@ function InterestedProvidersList({ requirement, onRequirementUpdated }) {
 export default function BidsModal({ open, onClose, requirement, onRequirementUpdated }) {
   const { user } = useAuth();
   const [myBid, setMyBid] = useState(null);
+  const [bidsRefresh, setBidsRefresh] = useState(0);
   const isOwner = user?.role === 'customer' && requirement?.customer?.id === user?.id;
   const isProvider = user?.role === 'provider';
   const isFixedPrice = requirement?.post_type === 'fixed';
@@ -532,7 +666,7 @@ export default function BidsModal({ open, onClose, requirement, onRequirementUpd
                   ? isFixedPrice
                     ? 'Review providers who are interested and hire the one you want'
                     : 'Review and accept bids from qualified service providers'
-                  : 'Submit a competitive quote to win this job'}
+                  : 'See what others have bid, then submit a competitive quote'}
               </p>
             </div>
             <button
@@ -555,13 +689,17 @@ export default function BidsModal({ open, onClose, requirement, onRequirementUpd
                 <BidsList requirement={requirement} onRequirementUpdated={onRequirementUpdated} />
               ))}
             {isProvider && !isFixedPrice && (
-              <ProviderBidForm
-                requirement={requirement}
-                existingBid={myBid}
-                onPlaced={(bid) => {
-                  setMyBid(bid);
-                }}
-              />
+              <div className="space-y-8">
+                <ProviderBidForm
+                  requirement={requirement}
+                  existingBid={myBid}
+                  onPlaced={(bid) => {
+                    setMyBid(bid);
+                    setBidsRefresh((n) => n + 1);
+                  }}
+                />
+                <ProviderBidsList requirement={requirement} refreshKey={bidsRefresh} />
+              </div>
             )}
           </div>
         </div>

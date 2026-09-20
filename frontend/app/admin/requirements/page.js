@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Gavel } from 'lucide-react';
 import api from '../../../lib/api';
 import AdminRequirementCard from '../../../components/admin/AdminRequirementCard';
 import { RowSkeleton } from '../../../components/ui/Skeleton';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
+import usePagination from '../../../lib/usePagination';
+import Pagination from '../../../components/admin/Pagination';
 
 const FILTERS = [
   { key: '', label: 'All' },
@@ -14,8 +17,11 @@ const FILTERS = [
 ];
 
 function AdminRequirementsContent() {
+  const searchParams = useSearchParams();
+  const statusParam = FILTERS.some((f) => f.key === searchParams.get('status')) ? searchParams.get('status') : '';
+
   const [requirements, setRequirements] = useState([]);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(statusParam);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +32,11 @@ function AdminRequirementsContent() {
       .then(({ data }) => setRequirements(data.requirements || []))
       .finally(() => setLoading(false));
   };
+
+  // Dashboard "Closed (Hired)" card links here with ?status=closed; follow the URL if it changes while mounted.
+  useEffect(() => {
+    setStatus(statusParam);
+  }, [statusParam]);
 
   useEffect(() => {
     loadRequirements();
@@ -41,6 +52,8 @@ function AdminRequirementsContent() {
     const desc = r.description?.toLowerCase() || '';
     return services.includes(term) || customer.includes(term) || desc.includes(term);
   });
+
+  const pager = usePagination(filtered, { resetKey: `${status}|${search}` });
 
   return (
     <div className="space-y-6">
@@ -79,7 +92,7 @@ function AdminRequirementsContent() {
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {loading && Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)}
-        {!loading && filtered.map((r) => <AdminRequirementCard key={r.id} requirement={r} />)}
+        {!loading && pager.pageItems.map((r) => <AdminRequirementCard key={r.id} requirement={r} />)}
       </div>
 
       {!loading && filtered.length === 0 && (
@@ -89,10 +102,16 @@ function AdminRequirementsContent() {
           <p className="text-xs text-ink-400">Try changing your search terms or status filter.</p>
         </div>
       )}
+
+      {!loading && <Pagination pager={pager} label="requirements" />}
     </div>
   );
 }
 
 export default function AdminRequirementsPage() {
-  return <AdminRequirementsContent />;
+  return (
+    <Suspense fallback={null}>
+      <AdminRequirementsContent />
+    </Suspense>
+  );
 }
