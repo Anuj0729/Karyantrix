@@ -12,8 +12,7 @@ import {
 import api, {
   setAccessToken,
   clearAccessToken,
-  setRefreshToken,
-  clearRefreshToken,
+  SESSION_EXPIRED_EVENT,
 } from "../lib/api-client";
 import { getSocket, disconnectSocket } from "../lib/socket";
 import { useToast } from "../components/ui/Toast";
@@ -27,8 +26,6 @@ export function AuthProvider({ children }) {
   const { toast } = useToast();
   const notificationHandlerRef = useRef(null);
 
-  // persistSession runs on every login/role switch. Remove our previous listener first so
-  // switching roles doesn't stack duplicate handlers (and duplicate toasts) on the shared socket.
   const bindNotificationListener = (socket) => {
     if (notificationHandlerRef.current) {
       socket.off("notification", notificationHandlerRef.current);
@@ -56,6 +53,23 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const onSessionExpired = () => {
+      const hadSession = !!localStorage.getItem("karyantrix_user");
+      localStorage.removeItem("karyantrix_user");
+      disconnectSocket();
+      notificationHandlerRef.current = null;
+      setUser(null);
+      setNotifications([]);
+      if (hadSession) {
+        toast("Your session has expired. Please log in again.", { type: "info" });
+      }
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [toast]);
+
   const hydrateNotifications = async () => {
     try {
       const { data } = await api.get("/notifications");
@@ -66,9 +80,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const persistSession = (token, userData, refreshTokenValue) => {
+  const persistSession = (token, userData) => {
     setAccessToken(token, true);
-    if (refreshTokenValue) setRefreshToken(refreshTokenValue);
     localStorage.setItem("karyantrix_user", JSON.stringify(userData));
     setUser(userData);
     hydrateNotifications();
@@ -98,21 +111,13 @@ export function AuthProvider({ children }) {
       otp,
     });
 
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
   const loginWithPassword = async (identifier, password) => {
     const { data } = await api.post("/auth/login", { identifier, password });
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
@@ -126,21 +131,13 @@ export function AuthProvider({ children }) {
       identifier,
       otp,
     });
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
   const googleAuth = async (credential) => {
     const { data } = await api.post("/auth/google", { credential });
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
@@ -190,21 +187,13 @@ export function AuthProvider({ children }) {
 
   const switchToCustomer = async () => {
     const { data } = await api.post("/providers/switch-to-customer");
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
   const switchToProvider = async () => {
     const { data } = await api.post("/providers/switch-to-provider");
-    persistSession(
-      data.accessToken || data.token,
-      data.user,
-      data.refreshToken,
-    );
+    persistSession(data.accessToken || data.token, data.user);
     return data.user;
   };
 
@@ -213,7 +202,6 @@ export function AuthProvider({ children }) {
       await api.post("/auth/logout");
     } catch (err) {}
     clearAccessToken();
-    clearRefreshToken();
     localStorage.removeItem("karyantrix_user");
     disconnectSocket();
     notificationHandlerRef.current = null;

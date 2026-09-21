@@ -1,51 +1,47 @@
 ﻿import axios from 'axios';
 
 const API_BASE = '/api';
+const ACCESS_TOKEN_KEY = 'karyantrix_token';
+const LEGACY_REFRESH_TOKEN_KEY = 'karyantrix_refresh_token';
+
+export const SESSION_EXPIRED_EVENT = 'karyantrix:session-expired';
+
+const EXPIRY_LEEWAY_MS = 10 * 1000;
 
 const api = axios.create({
   baseURL: API_BASE,
   withCredentials: true,
 });
 
-let accessToken = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_token') : null;
-let refreshToken = typeof window !== 'undefined' ? localStorage.getItem('karyantrix_refresh_token') : null;
-let isRefreshing = false;
-let refreshPromise = null;
-let subscribers = [];
+let accessToken = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+
+if (typeof window !== 'undefined') {
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+}
 
 export const setAccessToken = (token, persist = false) => {
   accessToken = token;
   if (persist && typeof window !== 'undefined') {
-    localStorage.setItem('karyantrix_token', token);
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
   }
 };
 
 export const clearAccessToken = () => {
   accessToken = null;
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('karyantrix_token');
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
   }
 };
 
-export const setRefreshToken = (token) => {
-  refreshToken = token;
-  if (typeof window !== 'undefined') {
-    if (token) {
-      localStorage.setItem('karyantrix_refresh_token', token);
-    } else {
-      localStorage.removeItem('karyantrix_refresh_token');
-    }
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.exp !== 'number') return false;
+    return payload.exp * 1000 <= Date.now() + EXPIRY_LEEWAY_MS;
+  } catch (err) {
+    return false;
   }
 };
-
-export const clearRefreshToken = () => setRefreshToken(null);
-
-const onRefreshed = (newToken) => {
-  subscribers.forEach((cb) => cb(newToken));
-  subscribers = [];
-};
-
-const addSubscriber = (cb) => subscribers.push(cb);
 
 const AUTH_ENDPOINTS_SKIP_REFRESH = [
   '/auth/refresh',
@@ -55,8 +51,50 @@ const AUTH_ENDPOINTS_SKIP_REFRESH = [
   '/auth/google',
 ];
 
-api.interceptors.request.use((config) => {
+const isAuthEndpoint = (url = '') => AUTH_ENDPOINTS_SKIP_REFRESH.some((u) => url.includes(u));
+
+const handleSessionExpired = () => {
+  clearAccessToken();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+};
+
+let refreshPromise = null;
+
+const refreshAccessToken = () => {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${API_BASE}/auth/refresh`, null, { withCredentials: true })
+      .then((res) => {
+        const newAccessToken = res.data && res.data.accessToken;
+        if (!newAccessToken) throw new Error('No accessToken returned from refresh');
+        setAccessToken(newAccessToken, true);
+        return newAccessToken;
+      })
+      .catch((err) => {
+        const status = err && err.response && err.response.status;
+        if (status === 401 || status === 403) handleSessionExpired();
+        throw err;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+};
+
+api.interceptors.request.use(async (config) => {
   config.headers = config.headers || {};
+
+  if (accessToken && !isAuthEndpoint(config.url) && isTokenExpired(accessToken)) {
+    try {
+      await refreshAccessToken();
+    } catch (err) {
+      config._retry = true;
+    }
+  }
+
   if (accessToken) config.headers['Authorization'] = 'Bearer ' + accessToken;
   return config;
 });
@@ -65,48 +103,23 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config;
-    if (!originalRequest) return Promise.reject(error);
-    if (originalRequest._retry) return Promise.reject(error);
-
-    const requestUrl = originalRequest.url || '';
-    const isAuthEndpoint = AUTH_ENDPOINTS_SKIP_REFRESH.some((u) => requestUrl.includes(u));
-
-    if (error.response && error.response.status === 401 && isAuthEndpoint) {
+    if (!originalRequest || !error.response || error.response.status !== 401) {
+      return Promise.reject(error);
+    }
+    if (originalRequest._retry || isAuthEndpoint(originalRequest.url)) {
       return Promise.reject(error);
     }
 
-    if (error.response && error.response.status === 401) {
-      originalRequest._retry = true;
+    originalRequest._retry = true;
 
-      if (!isRefreshing) {
-        isRefreshing = true;
-        refreshPromise = api.post('/auth/refresh', { refreshToken }).then((res) => {
-          const { accessToken: newAccessToken } = res.data || {};
-          if (!newAccessToken) throw new Error('No accessToken returned from refresh');
-          setAccessToken(newAccessToken, true);
-          onRefreshed(newAccessToken);
-          return newAccessToken;
-        }).catch((err) => {
-          subscribers = [];
-          throw err;
-        }).finally(() => {
-          isRefreshing = false;
-          refreshPromise = null;
-        });
-      }
-
-      try {
-        const newToken = await refreshPromise;
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
-        return api(originalRequest);
-      } catch (refreshErr) {
-        clearAccessToken();
-        return Promise.reject(refreshErr);
-      }
+    try {
+      const newAccessToken = await refreshAccessToken();
+      originalRequest.headers = originalRequest.headers || {};
+      originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+      return api(originalRequest);
+    } catch (refreshErr) {
+      return Promise.reject(refreshErr);
     }
-
-    return Promise.reject(error);
   }
 );
 

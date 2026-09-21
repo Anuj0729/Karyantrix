@@ -126,6 +126,17 @@ export default function ProvidersClient({
     fetchProviders(filters, page);
   }, [filters, page, fetchProviders, geoStatus, coords]);
 
+  // Live search: fire off a fresh lookup on every keystroke (debounced) so the
+  // provider directory matches name, service, location, etc. as the user types,
+  // without needing a dedicated Search button.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((prev) => (prev.search === draft.search ? prev : { ...prev, search: draft.search }));
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft.search]);
+
   const applyFilters = (next) => {
     setFilters(next);
     setPage(1);
@@ -170,10 +181,7 @@ export default function ProvidersClient({
           <input
             value={draft.search}
             onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
-            onKeyDown={(e) =>
-              e.key === 'Enter' && applyFilters({ ...filters, search: draft.search })
-            }
-            placeholder="Search by specialty, skill, title or name..."
+            placeholder="Search by specialty, skill, title, name or location..."
             className="w-full rounded-xl border border-ink-200/80 bg-white py-3 pl-10 pr-4 text-sm text-ink-900 shadow-soft transition-all duration-200 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
           {draft.search && (
@@ -196,9 +204,6 @@ export default function ProvidersClient({
             icon={<SlidersHorizontal size={17} aria-hidden="true" />}
           >
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-          </Button>
-          <Button onClick={() => applyFilters({ ...filters, search: draft.search })}>
-            Search
           </Button>
         </div>
       </div>

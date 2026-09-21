@@ -1,20 +1,8 @@
 const { ProviderProfile, User, Service, Category, Notification, Booking, Bid } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
 const { resolveViewerRadiusKm, parseViewerCoords, serializeGeoDoc } = require('../utils/geo');
-const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+const { issueAuthTokens } = require('../utils/authCookies');
 const { hasApprovedProviderProfile, canSwitchToProvider } = require('../utils/userPayload');
-
-const REFRESH_TOKEN_EXPIRES_MS = process.env.REFRESH_TOKEN_EXPIRES_MS ? parseInt(process.env.REFRESH_TOKEN_EXPIRES_MS, 10) : 7 * 24 * 60 * 60 * 1000;
-const setRefreshCookie = (res, token) => {
-  const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('refreshToken', token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'None' : 'Lax',
-    maxAge: REFRESH_TOKEN_EXPIRES_MS,
-    path: '/',
-  });
-};
 
 const ACTIVE_BOOKING_STATUSES = ['awaiting_advance', 'in_progress', 'work_completed'];
 
@@ -160,21 +148,16 @@ const switchToCustomer = async (req, res, next) => {
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
-    // is_approved is the "live" flag used by provider search and requirement notifications, so turning it
-    // off pauses the provider. application_status stays 'approved' so they can switch back without re-applying.
     await ProviderProfile.findOneAndUpdate(
       { user: user.id },
       { $set: { is_available: false, is_online: false, is_approved: false, application_status: 'approved' } }
     );
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    setRefreshCookie(res, refreshToken);
+    const { accessToken } = issueAuthTokens(res, user);
 
     res.json({
       message: 'Your account has been switched to a customer account',
       accessToken,
-      refreshToken,
       user: { ...user.toJSON(), can_switch_to_provider: await canSwitchToProvider(user) },
     });
   } catch (error) {
@@ -212,14 +195,11 @@ const switchToProvider = async (req, res, next) => {
       { $set: { is_approved: true, is_available: true, application_status: 'approved' } }
     );
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    setRefreshCookie(res, refreshToken);
+    const { accessToken } = issueAuthTokens(res, user);
 
     res.json({
       message: 'You are back on your provider account',
       accessToken,
-      refreshToken,
       user: { ...user.toJSON(), can_switch_to_provider: false },
     });
   } catch (error) {
@@ -358,14 +338,26 @@ const getProviders = async (req, res, next) => {
     match.user = { $in: activeUserIds.map((u) => u._id) };
 
     if (search) {
-      const re = new RegExp(search, 'i');
-      match.$or = [{ professional_title: re }, { skills: re }, { bio: re }];
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const nameMatchedUsers = await User.find({
+        _id: { $in: activeUserIds.map((u) => u._id) },
+        name: re,
+      }).select('_id');
+
+      match.$or = [
+        { professional_title: re },
+        { skills: re },
+        { bio: re },
+        { city: re },
+        { service_area: re },
+        { user: { $in: nameMatchedUsers.map((u) => u._id) } },
+      ];
     }
 
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.max(1, Number(limit));
 
-    const viewerCoords = parseViewerCoords(req.query);
+    const viewerCoords = search ? null : parseViewerCoords(req.query);
     if (viewerCoords) {
       const viewerRadiusKm = resolveViewerRadiusKm(radius, req.user);
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from 'next/link';
-import { ArrowLeft, SearchX, ChevronRight } from "lucide-react";
+import { ArrowLeft, Search, SearchX, ChevronRight, X } from "lucide-react";
 import api from "../../../lib/api";
 import CatalogServiceCard from "../../../components/CatalogServiceCard";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -20,6 +20,7 @@ export default function CategoryDetailClient({
     initialCatalogServices,
   );
   const [loading, setLoading] = useState(initialCatalogServices.length === 0);
+  const [filterText, setFilterText] = useState("");
 
   const skippedInitialCategoryFetch = useRef(!!initialCategory);
   const skippedInitialCatalogFetch = useRef(
@@ -52,6 +53,17 @@ export default function CategoryDetailClient({
   }, [category?.id]);
 
   const CategoryIcon = getCategoryIcon(category?.icon);
+
+  // Filter as the user types - matches on service name or description.
+  const filteredServices = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return catalogServices;
+    return catalogServices.filter(
+      (service) =>
+        service.name?.toLowerCase().includes(q) ||
+        service.description?.toLowerCase().includes(q)
+    );
+  }, [catalogServices, filterText]);
 
   return (
     <div className="space-y-6">
@@ -95,13 +107,43 @@ export default function CategoryDetailClient({
         </div>
       </div>
 
+      <div className="relative max-w-md">
+        <Search
+          size={17}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+          aria-hidden="true"
+        />
+        <input
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          placeholder="Filter services in this category..."
+          className="w-full rounded-xl border border-ink-200/80 bg-white py-2.5 pl-10 pr-9 text-sm text-ink-900 shadow-soft transition-all duration-200 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        />
+        {filterText && (
+          <button
+            onClick={() => setFilterText("")}
+            aria-label="Clear filter"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {!loading && filterText && (
+        <p className="text-xs font-semibold text-ink-500">
+          Showing <span className="text-ink-900">{filteredServices.length}</span> of{" "}
+          {catalogServices.length} services
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {loading &&
           Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         {!loading &&
-          catalogServices.map((service) => (
+          filteredServices.map((service) => (
             <CatalogServiceCard
               key={service.id}
               service={service}
@@ -121,6 +163,22 @@ export default function CategoryDetailClient({
             </h3>
             <p className="mt-1 text-xs text-ink-500 max-w-xs">
               There are currently no catalog services listed in this category.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!loading && catalogServices.length > 0 && filteredServices.length === 0 && (
+        <div className="mt-8 flex flex-col items-center gap-3 rounded-3xl border border-dashed border-ink-200 bg-ink-50/40 p-12 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-white border border-ink-100 flex items-center justify-center text-ink-400 shadow-soft">
+            <SearchX size={24} aria-hidden="true" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-ink-800">
+              No matching services
+            </h3>
+            <p className="mt-1 text-xs text-ink-500 max-w-xs">
+              Try a different search term or clear the filter.
             </p>
           </div>
         </div>

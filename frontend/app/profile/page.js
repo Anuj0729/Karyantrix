@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import BookingCard from '../../components/BookingCard';
 import ChangePasswordCard from '../../components/ChangePasswordCard';
 import ContactUpdateCard from '../../components/ContactUpdateCard';
+import AdminProfileView from '../../components/admin/AdminProfileView';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ProviderProfileRoute from '../../components/provider/ProviderProfileRoute';
 import RequirementCard from '../../components/RequirementCard';
@@ -796,6 +797,10 @@ function ProfileRouter() {
         <ProviderProfileRoute />
       </div>
     );
+  }
+
+  if (user.role === 'admin') {
+    return <AdminProfileView />;
   }
 
   return <ProfileContent />;
