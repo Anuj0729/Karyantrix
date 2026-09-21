@@ -72,7 +72,13 @@ const PROVIDER_DOCUMENT_TYPES = [
   { key: 'live_photo', label: 'Live profile photo' },
 ];
 
-// Every provider / applicant with the documents they uploaded, so admins can review them in one place.
+const buildDocuments = (kyc) => {
+  const uploaded = kyc || {};
+  return PROVIDER_DOCUMENT_TYPES.map(({ key, label }) => ({ key, label, url: uploaded[key] || null }));
+};
+
+// Lightweight list for the admin "Provider Documents" landing view: who the provider is and how many
+// of their documents are in. The documents themselves are loaded per provider by getProviderDocumentDetail.
 const getProviderDocuments = async (req, res, next) => {
   try {
     const profiles = await ProviderProfile.find({})
@@ -83,8 +89,7 @@ const getProviderDocuments = async (req, res, next) => {
     const providers = profiles
       .filter((p) => p.user)
       .map((p) => {
-        const kyc = p.kyc_documents || {};
-        const documents = PROVIDER_DOCUMENT_TYPES.map(({ key, label }) => ({ key, label, url: kyc[key] || null }));
+        const documents = buildDocuments(p.kyc_documents);
         return {
           id: p.id,
           user: {
@@ -99,13 +104,71 @@ const getProviderDocuments = async (req, res, next) => {
           application_status: p.application_status,
           verification_status: p.verification_status,
           updatedAt: p.updatedAt,
-          documents,
           uploaded_count: documents.filter((d) => d.url).length,
           total_count: documents.length,
         };
       });
 
     res.json({ providers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// One provider / applicant: contact details, what they offer, where they are, and their uploaded documents.
+// `:id` is the provider profile id (the same `id` returned by getProviderDocuments).
+const getProviderDocumentDetail = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    const profile = await ProviderProfile.findById(req.params.id)
+      .populate({ path: 'user', select: 'id name email phone avatar_url role location' })
+      .populate({ path: 'categories', select: 'id name' });
+
+    if (!profile || !profile.user) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    const services = await Service.find({ provider: profile.user._id, is_active: true })
+      .populate({ path: 'category', select: 'id name' })
+      .sort({ title: 1 });
+
+    // Categories the provider chose on their profile plus the ones their listed services belong to.
+    const categoryById = new Map();
+    (profile.categories || []).forEach((c) => c && categoryById.set(c.id, { id: c.id, name: c.name }));
+    services.forEach((s) => s.category && categoryById.set(s.category.id, { id: s.category.id, name: s.category.name }));
+
+    const documents = buildDocuments(profile.kyc_documents);
+
+    res.json({
+      provider: {
+        id: profile.id,
+        user: {
+          id: profile.user.id,
+          name: profile.user.name,
+          email: profile.user.email,
+          phone: profile.user.phone,
+          avatar_url: profile.user.avatar_url,
+          role: profile.user.role,
+        },
+        professional_title: profile.professional_title,
+        application_status: profile.application_status,
+        verification_status: profile.verification_status,
+        location: profile.location?.text || profile.city || profile.service_area || profile.user.location || null,
+        categories: [...categoryById.values()].sort((a, b) => a.name.localeCompare(b.name)),
+        services: services.map((s) => ({
+          id: s.id,
+          title: s.title,
+          category: s.category ? { id: s.category.id, name: s.category.name } : null,
+        })),
+        updatedAt: profile.updatedAt,
+        documents,
+        uploaded_count: documents.filter((d) => d.url).length,
+        total_count: documents.length,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -329,6 +392,7 @@ module.exports = {
   reviewApplication,
   getAllRequirements,
   getProviderDocuments,
+  getProviderDocumentDetail,
   getCancelledBookings,
   getCancellationAnalytics,
 };

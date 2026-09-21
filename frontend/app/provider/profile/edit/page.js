@@ -317,10 +317,32 @@ function ProviderProfileEditContent() {
     setCertForm({ title: '', issuer: '', year: '' });
   };
 
-  const addPortfolioItem = () => {
+  const addPortfolioItem = async () => {
     if (!portfolioForm.image_url) return;
-    setForm((f) => ({ ...f, portfolio: [...f.portfolio, portfolioForm] }));
+    const nextPortfolio = [...form.portfolio, portfolioForm];
+    setForm((f) => ({ ...f, portfolio: nextPortfolio }));
     setPortfolioForm({ image_url: '', title: '', description: '' });
+
+    // Persist immediately (same as the quick "Add Work" modal) instead of
+    // waiting for the wizard's Next/Save step - otherwise the item only
+    // lives in local state and is silently lost if the provider leaves
+    // this step (e.g. via the Back button) without saving.
+    try {
+      await api.put('/providers/me', { portfolio: nextPortfolio });
+      toast('Portfolio work added', { type: 'success' });
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not save portfolio item, please try again', { type: 'error' });
+    }
+  };
+
+  const removePortfolioItem = async (index) => {
+    const nextPortfolio = form.portfolio.filter((_, idx) => idx !== index);
+    setForm((f) => ({ ...f, portfolio: nextPortfolio }));
+    try {
+      await api.put('/providers/me', { portfolio: nextPortfolio });
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not remove portfolio item, please try again', { type: 'error' });
+    }
   };
 
   const handlePortfolioFile = async (e) => {
@@ -372,7 +394,13 @@ function ProviderProfileEditContent() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-ink-100">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push('/provider/profile')}
+            onClick={async () => {
+              // Safety net: don't silently drop any unsaved step data
+              // (e.g. a photo added on the Portfolio step) when leaving
+              // via Back instead of Next/Save.
+              await saveProgress(true);
+              router.push('/provider/profile');
+            }}
             aria-label="Back"
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-ink-200 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
           >
@@ -645,7 +673,7 @@ function ProviderProfileEditContent() {
                       <div key={i} className="group relative overflow-hidden rounded-lg">
                         <img src={resolveMediaUrl(item.image_url)} alt={item.title} className="h-24 w-full object-cover" />
                         <button
-                          onClick={() => setForm((f) => ({ ...f, portfolio: f.portfolio.filter((_, idx) => idx !== i) }))}
+                          onClick={() => removePortfolioItem(i)}
                           className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
                           aria-label="Remove"
                         >
@@ -727,7 +755,14 @@ function ProviderProfileEditContent() {
             <ArrowLeft size={16} aria-hidden="true" /> Back
           </Button>
           <div className="flex gap-2">
-            <Button variant="secondary" loading={saving} onClick={() => saveProgress(false)}>
+            <Button
+              variant="secondary"
+              loading={saving}
+              onClick={async () => {
+                const ok = await saveProgress(false);
+                if (ok) router.push('/provider/profile');
+              }}
+            >
               Save & exit
             </Button>
             <Button onClick={goNext}>

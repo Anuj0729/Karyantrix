@@ -1034,7 +1034,14 @@ function OnboardingContent() {
             <ArrowLeft size={16} aria-hidden="true" /> Back
           </Button>
           <div className="flex gap-2">
-            <Button variant="secondary" loading={saving} onClick={() => saveProgress(false)}>
+            <Button
+              variant="secondary"
+              loading={saving}
+              onClick={async () => {
+                const ok = await saveProgress(false);
+                if (ok) router.push('/profile');
+              }}
+            >
               Save & exit later
             </Button>
             <Button onClick={goNext}>
