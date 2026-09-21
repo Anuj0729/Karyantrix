@@ -32,6 +32,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/providers', label: 'Find Providers' },
     { href: '/categories', label: 'Browse Services' },
+    { href: '/requirements', label: 'Requirements' },
   ];
 
   const isLinkActive = (href) => {

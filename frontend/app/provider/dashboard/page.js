@@ -82,7 +82,7 @@ function ProviderDashboardContent() {
           <p className="text-xs sm:text-sm text-ink-500 mt-1">Manage your bids, active proposals, and service listings</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <Link href="/">
+          <Link href="/requirements">
             <Button variant="secondary" size="sm" icon={<Search size={15} aria-hidden="true" />}>
               Browse jobs
             </Button>
@@ -191,7 +191,7 @@ function ProviderDashboardContent() {
                 : 'You have not submitted any bids yet. Browse nearby job posts to submit proposals.'}
             </p>
           </div>
-          <Link href="/">
+          <Link href="/requirements">
             <Button size="sm" className="mt-2">Browse customer requirements</Button>
           </Link>
         </div>

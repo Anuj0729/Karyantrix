@@ -42,6 +42,19 @@ h1, h2, h3, h4, h5, h6, .font-display {
   display: none; /* Chrome, Safari, and Chromium-based Edge */
 }
 
+/* Every piece of text in the project is bold. Extra-bold / black headings keep
+   their heavier weight, everything else (including placeholders) is set to bold. */
+html,
+body,
+body *:not(.font-extrabold):not(.font-black),
+body *::before,
+body *::after {
+  font-weight: 700 !important;
+}
+body ::placeholder {
+  font-weight: 700 !important;
+}
+
 :focus-visible {
   outline: 2px solid #6366F1;
   outline-offset: 2px;

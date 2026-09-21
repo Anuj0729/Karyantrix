@@ -217,7 +217,7 @@ const createRequirement = async (req, res, next) => {
 const getRequirementById = async (req, res, next) => {
   try {
     const requirement = await Requirement.findById(req.params.id)
-      .populate({ path: 'customer', select: 'id name avatar_url is_verified' })
+      .populate({ path: 'customer', select: 'id name avatar_url is_verified createdAt' })
       .populate({ path: 'categories', select: 'id name slug' });
     if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
 

@@ -9,7 +9,7 @@ export const metadata = {
 
 async function safeGet(path) {
   try {
-    const res = await fetch(`${apiUrl}${path}`, { next: { revalidate: 120 } });
+    const res = await fetch(`${apiUrl}${path}`, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -18,16 +18,13 @@ async function safeGet(path) {
 }
 
 export default async function HomePage() {
-  const [categoriesData, providersData] = await Promise.all([
-    safeGet('/categories'),
-    safeGet('/providers?sort=rating&limit=3'),
-  ]);
+  const statsData = await safeGet('/stats');
 
   return (
     <Suspense fallback={null}>
       <HomeClient
-        initialCategories={categoriesData?.categories || []}
-        initialProviders={providersData?.providers || []}
+        initialStats={statsData?.stats || null}
+        initialCategoryNames={statsData?.categoryNames || []}
       />
     </Suspense>
   );
