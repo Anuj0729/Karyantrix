@@ -25,7 +25,7 @@ const {
   deleteServiceCatalog,
 } = require('../controllers/serviceCatalogController');
 const { getReports, getReportById, resolveReport } = require('../controllers/reportController');
-const { getAnalytics } = require('../controllers/analyticsController');
+const { getAnalytics, getLineChart, getBarChart, getPieChart } = require('../controllers/analyticsController');
 const {
   getSettings: getWalletSettings,
   updateSettings: updateWalletSettings,
@@ -65,6 +65,9 @@ router.get('/reports/:id', getReportById);
 router.patch('/reports/:id/resolve', resolveReport);
 
 router.get('/analytics', getAnalytics);
+router.get('/analytics/line', getLineChart);
+router.get('/analytics/bar', getBarChart);
+router.get('/analytics/pie', getPieChart);
 
 router.get('/wallet/settings', getWalletSettings);
 router.patch('/wallet/settings', updateWalletSettings);

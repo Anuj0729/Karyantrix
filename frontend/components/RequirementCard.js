@@ -433,29 +433,31 @@ export default function RequirementCard({ requirement, onUpdated }) {
         {!user && <p className="text-xs text-ink-400 italic">Sign in as a provider to bid on this requirement</p>}
       </div>
 
-      {requirement.media?.length > 0 && (
-        <MediaLightbox
-          media={requirement.media}
-          index={lightboxIndex}
-          onNavigate={setLightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-        />
-      )}
+      <div onClick={(e) => e.stopPropagation()}>
+        {requirement.media?.length > 0 && (
+          <MediaLightbox
+            media={requirement.media}
+            index={lightboxIndex}
+            onNavigate={setLightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
+        )}
 
-      <BidsModal
-        open={bidsOpen}
-        onClose={() => setBidsOpen(false)}
-        requirement={requirement}
-        onRequirementUpdated={onUpdated}
-      />
-      {canEditOrDelete && (
-        <RequirementComposerModal
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
+        <BidsModal
+          open={bidsOpen}
+          onClose={() => setBidsOpen(false)}
           requirement={requirement}
-          onSaved={onUpdated}
+          onRequirementUpdated={onUpdated}
         />
-      )}
+        {canEditOrDelete && (
+          <RequirementComposerModal
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            requirement={requirement}
+            onSaved={onUpdated}
+          />
+        )}
+      </div>
     </Card>
   );
 }
