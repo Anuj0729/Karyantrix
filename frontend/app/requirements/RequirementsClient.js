@@ -149,7 +149,7 @@ export default function RequirementsClient() {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {loadingRequirements &&
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[500px] rounded-3xl" />)}
           {!loadingRequirements &&
             requirements.map((r, i) => (
               <motion.div

@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, MapPin, Maximize2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Badge from './ui/Badge';
 import Card from './ui/Card';
 import Portal from './ui/Portal';
@@ -151,19 +151,10 @@ export default function RequirementCard({ requirement }) {
   const customer = requirement.customer || {};
   const isFixedPrice = requirement.post_type === 'fixed';
   const [lightboxIndex, setLightboxIndex] = useState(null);
-  const [descExpanded, setDescExpanded] = useState(false);
-  const [descClamped, setDescClamped] = useState(false);
-  const descRef = useRef(null);
-
-  useLayoutEffect(() => {
-    const el = descRef.current;
-    if (!el) return;
-    setDescClamped(el.scrollHeight > el.clientHeight + 1);
-  }, [requirement.description]);
 
   return (
     <Card
-      className="group relative flex flex-col justify-between overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
+      className="group relative flex h-[500px] flex-col overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
       onClick={openDetail}
       role="button"
       tabIndex={0}
@@ -178,8 +169,12 @@ export default function RequirementCard({ requirement }) {
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
+      {/* Fixed-height flex column: every card is the same size no matter how
+          much or how little content (description length, media count) it has.
+          The description grows to fill the remaining space and clamps its
+          own text instead of pushing the card taller. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative shrink-0">
               <img
@@ -224,7 +219,7 @@ export default function RequirementCard({ requirement }) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        <div className="flex h-12 shrink-0 flex-wrap items-start gap-1.5 overflow-hidden pt-1">
           {(requirement.services || []).map((s) => (
             <Badge key={s} tone="brand" size="sm" className="font-medium">
               {s}
@@ -247,26 +242,12 @@ export default function RequirementCard({ requirement }) {
           )}
         </div>
 
-        <div>
-          <p ref={descRef} className={`text-sm text-ink-700 leading-relaxed ${descExpanded ? '' : 'line-clamp-3'}`}>
-            {requirement.description}
-          </p>
-          {descClamped && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDescExpanded((v) => !v);
-              }}
-              className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline"
-            >
-              {descExpanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
+        <div className="min-h-0 flex-1">
+          <p className="line-clamp-3 text-sm text-ink-700 leading-relaxed">{requirement.description}</p>
         </div>
 
         {requirement.media?.length > 0 && (
-          <div className={`grid gap-2 pt-1 ${requirement.media.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          <div className={`grid h-44 shrink-0 gap-2 ${requirement.media.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
             {requirement.media.slice(0, 3).map((m, i) => (
               <div
                 key={m.url}
@@ -283,11 +264,11 @@ export default function RequirementCard({ requirement }) {
                     setLightboxIndex(i);
                   }
                 }}
-                className="group/media relative cursor-pointer overflow-hidden rounded-2xl bg-ink-100 ring-1 ring-ink-200/50 shadow-soft"
+                className="group/media relative h-full cursor-pointer overflow-hidden rounded-2xl bg-ink-100 ring-1 ring-ink-200/50 shadow-soft"
               >
                 {m.type === 'video' ? (
-                  <div className="relative h-44 w-full bg-black/90 flex items-center justify-center">
-                    <video src={mediaUrl(m.url)} className="h-44 w-full object-cover opacity-80" muted playsInline />
+                  <div className="relative h-full w-full bg-black/90 flex items-center justify-center">
+                    <video src={mediaUrl(m.url)} className="h-full w-full object-cover opacity-80" muted playsInline />
                     <span className="absolute px-2 py-0.5 rounded-full bg-black/60 text-[10px] font-semibold text-white backdrop-blur-sm">
                       Video
                     </span>
@@ -296,7 +277,7 @@ export default function RequirementCard({ requirement }) {
                   <img
                     src={mediaUrl(m.url)}
                     alt={`${requirement.services?.[0] || 'Requirement'} media ${i + 1}`}
-                    className="h-44 w-full object-cover transition-transform duration-300 group-hover/media:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover/media:scale-105"
                     loading="lazy"
                     decoding="async"
                   />

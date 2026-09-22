@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { resolveMediaUrl, withRetryToken } from './mediaUrl';
 import { formatFullTimestamp, formatMessageTime } from '../../lib/chatDate';
+import { extractRequirementId } from '../../lib/linkify';
+import LinkifiedText from './LinkifiedText';
+import RequirementLinkPreview from './RequirementLinkPreview';
 
 const isEditable = (message, isOwn) =>
   isOwn && message.type === 'text' && !message.is_deleted_for_everyone && !message.status;
@@ -140,6 +143,17 @@ export default function MessageBubble({
     setMediaRetryToken(Date.now());
   };
 
+  const requirementId = !isDeleted && message.type === 'text' ? extractRequirementId(message.text) : null;
+
+  const handleBubbleDoubleClick = (e) => {
+    if (!onReply || isDeleted || isEditing || isInFlight) return;
+    // Don't hijack a double-click on an interactive element inside the bubble
+    // (links, buttons, media controls) - only reply when the bubble body itself
+    // was double-clicked.
+    if (e.target.closest('a, button, textarea, input, video, audio')) return;
+    onReply(message);
+  };
+
   const bubbleClass = isOwn
     ? 'bg-brand-600 text-white rounded-2xl rounded-tr-xs shadow-xs'
     : 'bg-white border border-ink-200/80 text-ink-900 rounded-2xl rounded-tl-xs shadow-xs';
@@ -196,6 +210,7 @@ export default function MessageBubble({
       )}
 
       <div
+        onDoubleClick={handleBubbleDoubleClick}
         className={`max-w-[78%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-xs transition-all ${bubbleClass} ${
           isInFlight ? 'opacity-75' : ''
         } ${hasFailed ? 'ring-1 ring-rose-400' : ''}`}
@@ -227,7 +242,17 @@ export default function MessageBubble({
         )}
 
         {!isDeleted && message.type === 'text' && !isEditing && (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.text}</p>
+          <>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              <LinkifiedText
+                text={message.text}
+                linkClassName={`break-all underline decoration-1 underline-offset-2 hover:opacity-80 ${
+                  isOwn ? 'text-white' : 'text-brand-700'
+                }`}
+              />
+            </p>
+            {requirementId && <RequirementLinkPreview requirementId={requirementId} isOwn={isOwn} />}
+          </>
         )}
 
         {!isDeleted && message.type === 'text' && isEditing && (

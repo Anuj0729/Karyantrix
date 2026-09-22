@@ -77,7 +77,7 @@ const buildContactMessage = (requirement) => {
   const title = requirement?.title ? `"${requirement.title}"` : 'my requirement';
   const link =
     typeof window !== 'undefined' && requirement?.id ? `${window.location.origin}/requirements/${requirement.id}` : '';
-  const message = `Hello! I'd like to talk to you about my requirement ${title}.${link ? ` ${link}` : ''}`;
+  const message = `Hello! I'd like to talk to you about ${title}.${link ? ` ${link}` : ''}`;
   // Unique marker for this requirement, used to detect whether it has
   // already been mentioned earlier in an existing conversation.
   const dedupeKey = requirement?.id ? `/requirements/${requirement.id}` : null;
