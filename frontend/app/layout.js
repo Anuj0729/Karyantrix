@@ -125,6 +125,10 @@ const websiteJsonLd = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jakarta.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+      </head>
       <body className="flex min-h-screen flex-col">
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={websiteJsonLd} />

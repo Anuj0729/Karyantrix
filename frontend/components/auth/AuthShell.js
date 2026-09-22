@@ -36,7 +36,7 @@ export default function AuthShell({
               <span className="font-display text-xl font-bold tracking-tight text-white">Karyantrix</span>
             </Link>
 
-            <h1 className="mt-8 font-display text-3xl lg:text-4xl font-bold leading-tight text-white tracking-tight">{asideTitle}</h1>
+            <h2 className="mt-8 font-display text-3xl lg:text-4xl font-bold leading-tight text-white tracking-tight">{asideTitle}</h2>
             <p className="mt-3 max-w-sm text-sm text-brand-100/90 leading-relaxed">{asideSubtitle}</p>
 
             {asideBadge && (

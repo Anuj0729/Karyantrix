@@ -13,6 +13,7 @@ import {
   Lock,
   MapPin,
   Maximize2,
+  MessageCircle,
   PackageX,
   Pencil,
   Send,
@@ -30,6 +31,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BackButton from '../../../components/BackButton';
 import { useAuth } from '../../../context/AuthContext';
+import { useChat } from '../../../context/ChatContext';
 import api from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import useGeolocation from '../../../lib/useGeolocation';
@@ -70,6 +72,17 @@ const timeAgo = (dateStr) => {
 };
 
 const formatInr = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
+
+const buildContactMessage = (requirement) => {
+  const title = requirement?.title ? `"${requirement.title}"` : 'my requirement';
+  const link =
+    typeof window !== 'undefined' && requirement?.id ? `${window.location.origin}/requirements/${requirement.id}` : '';
+  const message = `Hello! I'd like to talk to you about my requirement ${title}.${link ? ` ${link}` : ''}`;
+  // Unique marker for this requirement, used to detect whether it has
+  // already been mentioned earlier in an existing conversation.
+  const dedupeKey = requirement?.id ? `/requirements/${requirement.id}` : null;
+  return { message, dedupeKey };
+};
 
 const formatMemberSince = (dateStr) => {
   if (!dateStr) return null;
@@ -571,9 +584,11 @@ const firstNumber = (...vals) => vals.find((v) => typeof v === 'number' && !Numb
 
 function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
   const { toast } = useToast();
+  const { openChatWithProvider } = useChat();
   const [expanded, setExpanded] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [hiring, setHiring] = useState(false);
+  const [contacting, setContacting] = useState(false);
 
   const provider = bid.provider || {};
   const budget = typeof requirement.budget === 'number' ? requirement.budget : null;
@@ -611,6 +626,21 @@ function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
       toast(err.response?.data?.message || 'Could not hire this provider', { type: 'error' });
     } finally {
       setHiring(false);
+    }
+  };
+
+  const handleContact = async () => {
+    if (!provider.id || contacting) return;
+    setContacting(true);
+    try {
+      const { message, dedupeKey } = buildContactMessage(requirement);
+      await openChatWithProvider(provider.id, { initialMessage: message, dedupeKey });
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not start the conversation, please try again', {
+        type: 'error',
+      });
+    } finally {
+      setContacting(false);
     }
   };
 
@@ -730,9 +760,20 @@ function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
           )}
         </div>
 
-        {hireable && (
+        {(hireable || (isOwner && !bid.is_mine)) && (
           <div className="flex items-center gap-2">
-            {confirming ? (
+            {isOwner && !bid.is_mine && !confirming && (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={contacting}
+                onClick={handleContact}
+                icon={<MessageCircle size={14} aria-hidden="true" />}
+              >
+                Contact
+              </Button>
+            )}
+            {hireable && confirming ? (
               <>
                 <button
                   type="button"
@@ -747,9 +788,11 @@ function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
                 </Button>
               </>
             ) : (
-              <Button size="sm" onClick={() => setConfirming(true)}>
-                Hire {formatInr(bid.amount)}
-              </Button>
+              hireable && (
+                <Button size="sm" onClick={() => setConfirming(true)}>
+                  Hire {formatInr(bid.amount)}
+                </Button>
+              )
             )}
           </div>
         )}
@@ -890,10 +933,12 @@ function useInterestedProviders(requirementId, enabled) {
   return { interested, meta, loading, failed, reload: load };
 }
 
-function InterestedProviderItem({ entry, requirement, isHired, canHire, onHired }) {
+function InterestedProviderItem({ entry, requirement, isOwner, isHired, canHire, onHired }) {
   const { toast } = useToast();
+  const { openChatWithProvider } = useChat();
   const [confirming, setConfirming] = useState(false);
   const [hiring, setHiring] = useState(false);
+  const [contacting, setContacting] = useState(false);
 
   const provider = entry.provider || {};
   const rating = firstNumber(provider.avg_rating, provider.rating);
@@ -915,6 +960,21 @@ function InterestedProviderItem({ entry, requirement, isHired, canHire, onHired 
       toast(err.response?.data?.message || 'Could not hire this provider', { type: 'error' });
     } finally {
       setHiring(false);
+    }
+  };
+
+  const handleContact = async () => {
+    if (!provider.id || contacting) return;
+    setContacting(true);
+    try {
+      const { message, dedupeKey } = buildContactMessage(requirement);
+      await openChatWithProvider(provider.id, { initialMessage: message, dedupeKey });
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not start the conversation, please try again', {
+        type: 'error',
+      });
+    } finally {
+      setContacting(false);
     }
   };
 
@@ -970,9 +1030,20 @@ function InterestedProviderItem({ entry, requirement, isHired, canHire, onHired 
           )}
         </div>
 
-        {hireable && (
+        {(hireable || (isOwner && !isHired)) && (
           <div className="flex items-center gap-2">
-            {confirming ? (
+            {isOwner && !isHired && !confirming && (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={contacting}
+                onClick={handleContact}
+                icon={<MessageCircle size={14} aria-hidden="true" />}
+              >
+                Contact
+              </Button>
+            )}
+            {hireable && confirming ? (
               <>
                 <button
                   type="button"
@@ -987,9 +1058,11 @@ function InterestedProviderItem({ entry, requirement, isHired, canHire, onHired 
                 </Button>
               </>
             ) : (
-              <Button size="sm" onClick={() => setConfirming(true)}>
-                Hire
-              </Button>
+              hireable && (
+                <Button size="sm" onClick={() => setConfirming(true)}>
+                  Hire
+                </Button>
+              )
             )}
           </div>
         )}
@@ -1050,6 +1123,7 @@ function InterestedProvidersCard({ requirement, isOwner, canHire, onHired }) {
               key={entry.provider?.id || idx}
               entry={entry}
               requirement={requirement}
+              isOwner={isOwner}
               isHired={!!(meta.hired_provider && entry.provider?.id === meta.hired_provider)}
               canHire={canHire && !meta.hired_provider}
               onHired={onHired}

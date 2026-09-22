@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Flag, ImagePlus, Mic, Send, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, Flag, ImagePlus, Mic, Reply, Send, Trash2, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useToast } from '../ui/Toast';
@@ -29,6 +29,16 @@ const formatDuration = (totalSeconds) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+const replyPreviewText = (message) => {
+  if (!message) return '';
+  if (message.is_deleted_for_everyone) return 'This message was deleted';
+  if (message.type === 'text') return message.text || '';
+  if (message.type === 'image') return '📷 Photo';
+  if (message.type === 'video') return '🎥 Video';
+  if (message.type === 'audio') return message.media?.is_voice_note ? '🎤 Voice message' : '🎵 Audio';
+  return '';
+};
+
 export default function ChatThread({ conversationId, backHref }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -52,17 +62,28 @@ export default function ChatThread({ conversationId, backHref }) {
   const [uploadsInFlight, setUploadsInFlight] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [highlightedId, setHighlightedId] = useState(null);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
+  const textInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const recordStreamRef = useRef(null);
   const recordTimerRef = useRef(null);
   const firstItemIdRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  const messageNodesRef = useRef({});
+  const highlightTimeoutRef = useRef(null);
 
   const discardRecordingRef = useRef(false);
   const [reportOpen, setReportOpen] = useState(false);
+
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [conversationId]);
+
+  useEffect(() => () => clearTimeout(highlightTimeoutRef.current), []);
 
   const conversation = conversations.find((c) => c.id === conversationId);
   const thread = messagesByConversation[conversationId] || { items: [], hasMore: false, loading: false };
@@ -107,11 +128,13 @@ export default function ChatThread({ conversationId, backHref }) {
     const trimmed = text.trim();
     if (!trimmed) return;
 
+    const replyTo = replyingTo;
     setText('');
+    setReplyingTo(null);
     stopTyping();
     stickToBottomRef.current = true;
 
-    sendText(conversationId, trimmed).catch((err) => {
+    sendText(conversationId, trimmed, { replyTo }).catch((err) => {
       toast(err.response?.data?.message || 'Message could not be sent', { type: 'error' });
     });
   };
@@ -142,6 +165,22 @@ export default function ChatThread({ conversationId, backHref }) {
     }
   };
 
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    textInputRef.current?.focus();
+  };
+
+  const handleCancelReply = () => setReplyingTo(null);
+
+  const handleJumpToMessage = (messageId) => {
+    const node = messageNodesRef.current[messageId];
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    clearTimeout(highlightTimeoutRef.current);
+    setHighlightedId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedId(null), 1600);
+  };
+
   const handlePickFile = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e) => {
@@ -163,8 +202,10 @@ export default function ChatThread({ conversationId, backHref }) {
 
     stickToBottomRef.current = true;
     setUploadsInFlight((n) => n + 1);
+    const replyTo = replyingTo;
+    setReplyingTo(null);
     try {
-      await sendMedia(conversationId, file, { isVoiceNote: false });
+      await sendMedia(conversationId, file, { isVoiceNote: false, replyTo });
     } catch (err) {
       toast(err.response?.data?.message || 'Attachment could not be sent', { type: 'error' });
     } finally {
@@ -185,6 +226,8 @@ export default function ChatThread({ conversationId, backHref }) {
 
   useEffect(() => teardownRecording, []);
 
+  const recordingReplyRef = useRef(null);
+
   const startRecording = async () => {
     if (isRecording) return;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
@@ -202,6 +245,7 @@ export default function ChatThread({ conversationId, backHref }) {
       recordStreamRef.current = stream;
       recordedChunksRef.current = [];
       discardRecordingRef.current = false;
+      recordingReplyRef.current = replyingTo;
 
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
@@ -214,6 +258,8 @@ export default function ChatThread({ conversationId, backHref }) {
         const chunks = recordedChunksRef.current;
         const wasDiscarded = discardRecordingRef.current;
         const usedMimeType = recorder.mimeType || mimeType || 'audio/webm';
+        const replyTo = recordingReplyRef.current;
+        recordingReplyRef.current = null;
         teardownRecording();
 
         if (wasDiscarded || chunks.length === 0) return;
@@ -227,9 +273,10 @@ export default function ChatThread({ conversationId, backHref }) {
         }
 
         stickToBottomRef.current = true;
+        setReplyingTo(null);
         setUploadsInFlight((n) => n + 1);
         try {
-          await sendMedia(conversationId, file, { isVoiceNote: true });
+          await sendMedia(conversationId, file, { isVoiceNote: true, replyTo });
         } catch (err) {
           toast(err.response?.data?.message || 'Voice message could not be sent', { type: 'error' });
         } finally {
@@ -374,17 +421,49 @@ export default function ChatThread({ conversationId, backHref }) {
             {shouldShowDayDivider(m.createdAt, thread.items[index - 1]?.createdAt) && (
               <DateDivider date={m.createdAt} />
             )}
-            <MessageBubble
-              message={m}
-              isOwn={m.sender === user?.id}
-              onEdit={handleEditMessage}
-              onDelete={handleDeleteMessage}
-              onRetry={handleRetry}
-              onDiscard={handleDiscard}
-            />
+            <div
+              ref={(node) => {
+                if (node) messageNodesRef.current[m.id] = node;
+                else delete messageNodesRef.current[m.id];
+              }}
+            >
+              <MessageBubble
+                message={m}
+                isOwn={m.sender === user?.id}
+                highlighted={highlightedId === m.id}
+                viewerId={user?.id}
+                otherParticipantName={conversation?.other_participant?.name}
+                onEdit={handleEditMessage}
+                onDelete={handleDeleteMessage}
+                onRetry={handleRetry}
+                onDiscard={handleDiscard}
+                onReply={handleReply}
+                onJumpToReply={handleJumpToMessage}
+              />
+            </div>
           </Fragment>
         ))}
       </div>
+
+      {replyingTo && (
+        <div className="flex items-center gap-2 border-t border-ink-100/80 bg-brand-50/60 px-3.5 py-2">
+          <Reply size={15} className="shrink-0 text-brand-500" aria-hidden="true" />
+          <div className="min-w-0 flex-1 border-l-2 border-brand-400 pl-2.5">
+            <p className="truncate text-xs font-semibold text-brand-700">
+              {replyingTo.sender === user?.id ? 'You' : conversation?.other_participant?.name || 'Them'}
+            </p>
+            <p className="truncate text-xs text-ink-500">{replyPreviewText(replyingTo)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelReply}
+            className="shrink-0 rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 transition-colors"
+            aria-label="Cancel reply"
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       {isRecording ? (
         <div className="flex items-center gap-3 border-t border-ink-100 bg-rose-50/50 px-4 py-3 transition-all">
@@ -436,6 +515,7 @@ export default function ChatThread({ conversationId, backHref }) {
             {isUploading ? <Spinner size={20} className="text-brand-600" /> : <ImagePlus size={20} aria-hidden="true" />}
           </button>
           <input
+            ref={textInputRef}
             type="text"
             value={text}
             onChange={handleTextChange}

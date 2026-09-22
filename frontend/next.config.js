@@ -6,7 +6,7 @@ const nextConfig = {
   },
 
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
 
   compress: true,
@@ -36,8 +36,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // The service worker file must always be revalidated, otherwise
-        // browsers can pin an old worker and block PWA updates for users.
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
@@ -53,7 +51,6 @@ const nextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {
-        // Security/SEO-adjacent hardening headers applied site-wide.
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -79,7 +76,6 @@ const nextConfig = {
     ];
   },
 
-  // Proxy API requests to the backend
   async rewrites() {
     const apiUrl = process.env.API_URL;
     const apiOrigin = (apiUrl || '').replace(/\/api\/?$/, '');

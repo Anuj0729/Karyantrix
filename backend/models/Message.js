@@ -7,6 +7,8 @@ const messageSchema = new mongoose.Schema(
     sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     type: { type: String, enum: ['text', 'image', 'video', 'audio'], default: 'text' },
 
+    reply_to: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
+
     text: { type: String, default: null, maxlength: 2000 },
 
     media: {

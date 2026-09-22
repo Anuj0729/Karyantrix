@@ -376,17 +376,54 @@ export function ChatProvider({ children }) {
   const closePanel = useCallback(() => setPanelOpen(false), []);
   const closeThread = useCallback(() => setActiveConversationId(null), []);
 
+  const MAX_DEDUPE_SCAN_PAGES = 10;
+
+  const conversationHasText = useCallback(async (conversationId, needle) => {
+    let before;
+    for (let page = 0; page < MAX_DEDUPE_SCAN_PAGES; page += 1) {
+      const { messages = [], hasMore } = await chatApi.getMessages(conversationId, before ? { before } : undefined);
+      if (messages.some((m) => m.type === 'text' && typeof m.text === 'string' && m.text.includes(needle))) {
+        return true;
+      }
+      if (!hasMore || messages.length === 0) return false;
+      before = messages[0].createdAt;
+    }
+    return false;
+  }, []);
+
   const openChatWithProvider = useCallback(
-    async (providerId) => {
+    async (providerId, options) => {
+      const { initialMessage, dedupeKey } = typeof options === 'string' ? { initialMessage: options } : options || {};
+
       const conversation = await chatApi.startConversation(providerId);
       setConversations((prev) => {
         if (prev.some((c) => c.id === conversation.id)) return prev;
         return [conversation, ...prev];
       });
+
+      if (initialMessage) {
+        let shouldSend = !conversation.last_message_at;
+
+        if (!shouldSend && dedupeKey) {
+          try {
+            shouldSend = !(await conversationHasText(conversation.id, dedupeKey));
+          } catch (err) {
+            shouldSend = false;
+          }
+        }
+
+        if (shouldSend) {
+          try {
+            await chatApi.sendTextMessage(conversation.id, initialMessage, { clientId: makeClientId() });
+          } catch (err) {
+          }
+        }
+      }
+
       router.push(`/messages/${conversation.id}`);
       return conversation;
     },
-    [router]
+    [router, conversationHasText]
   );
 
   const buildOptimistic = useCallback((conversationId, clientId, overrides) => ({
@@ -406,15 +443,19 @@ export function ChatProvider({ children }) {
   }), []);
 
   const sendText = useCallback(
-    async (conversationId, text) => {
+    async (conversationId, text, { replyTo } = {}) => {
       const clientId = makeClientId();
-      const optimistic = buildOptimistic(conversationId, clientId, { type: 'text', text });
+      const optimistic = buildOptimistic(conversationId, clientId, {
+        type: 'text',
+        text,
+        reply_to: replyTo || null,
+      });
 
       upsertLocalMessage(conversationId, optimistic);
       bumpConversation(conversationId, optimistic);
 
       try {
-        const message = await chatApi.sendTextMessage(conversationId, text, { clientId });
+        const message = await chatApi.sendTextMessage(conversationId, text, { clientId, replyTo: replyTo?.id });
         upsertLocalMessage(conversationId, message, { clientId });
         bumpConversation(conversationId, message);
         return message;
@@ -427,7 +468,7 @@ export function ChatProvider({ children }) {
   );
 
   const runMediaSend = useCallback(
-    async (conversationId, file, { clientId, isVoiceNote, onProgress }) => {
+    async (conversationId, file, { clientId, isVoiceNote, onProgress, replyTo }) => {
       try {
         const { mediaId, mediaType } = await uploadChatMedia(file, {
           onProgress: (progress) => {
@@ -443,6 +484,7 @@ export function ChatProvider({ children }) {
           mediaType,
           isVoiceNote,
           clientId,
+          replyTo: replyTo?.id,
         });
 
         upsertLocalMessage(conversationId, message, { clientId });
@@ -458,7 +500,7 @@ export function ChatProvider({ children }) {
   );
 
   const sendMedia = useCallback(
-    async (conversationId, file, { onProgress, isVoiceNote = false } = {}) => {
+    async (conversationId, file, { onProgress, isVoiceNote = false, replyTo } = {}) => {
       const clientId = makeClientId();
       const mediaType = file.type?.startsWith('video/')
         ? 'video'
@@ -473,13 +515,14 @@ export function ChatProvider({ children }) {
         media: { url: localPreview, media_type: mediaType, is_voice_note: isVoiceNote },
         status: 'uploading',
         upload_progress: 0,
+        reply_to: replyTo || null,
       });
 
-      pendingFilesRef.current.set(clientId, { file, isVoiceNote, conversationId });
+      pendingFilesRef.current.set(clientId, { file, isVoiceNote, conversationId, replyTo: replyTo || null });
       upsertLocalMessage(conversationId, optimistic);
       bumpConversation(conversationId, optimistic);
 
-      return runMediaSend(conversationId, file, { clientId, isVoiceNote, onProgress });
+      return runMediaSend(conversationId, file, { clientId, isVoiceNote, onProgress, replyTo });
     },
     [buildOptimistic, upsertLocalMessage, bumpConversation, runMediaSend]
   );
@@ -495,7 +538,10 @@ export function ChatProvider({ children }) {
       if (target.type === 'text') {
         patchLocalMessage(conversationId, clientId, { status: 'sending' });
         try {
-          const message = await chatApi.sendTextMessage(conversationId, target.text, { clientId });
+          const message = await chatApi.sendTextMessage(conversationId, target.text, {
+            clientId,
+            replyTo: target.reply_to?.id,
+          });
           upsertLocalMessage(conversationId, message, { clientId });
           bumpConversation(conversationId, message);
           return message;
@@ -516,6 +562,7 @@ export function ChatProvider({ children }) {
       return runMediaSend(conversationId, pending.file, {
         clientId,
         isVoiceNote: pending.isVoiceNote,
+        replyTo: pending.replyTo,
       });
     },
     [patchLocalMessage, upsertLocalMessage, bumpConversation, runMediaSend]

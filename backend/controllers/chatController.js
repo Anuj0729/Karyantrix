@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Conversation, Message, User, UploadSession, Notification } = require('../models');
 const { emitToUser, isUserActiveInConversation } = require('../sockets/socketHandler');
 
@@ -5,6 +6,8 @@ const PREVIEW_TEXT = { image: '📷 Photo', video: '🎥 Video' };
 const DELETED_PREVIEW = 'This message was deleted';
 
 const DELETE_FOR_EVERYONE_WINDOW_MS = 60 * 60 * 1000;
+
+const REPLY_PREVIEW_FIELDS = 'id type text media sender is_deleted_for_everyone createdAt';
 
 const buildPreview = (message) => {
   if (message.is_deleted_for_everyone) return DELETED_PREVIEW;
@@ -120,7 +123,7 @@ const getMessages = async (req, res, next) => {
     const query = { conversation: conversation.id, deleted_for: { $ne: req.user.id } };
     if (req.query.before) query.createdAt = { $lt: new Date(req.query.before) };
 
-    const messages = await Message.find(query).sort({ createdAt: -1 }).limit(limit);
+    const messages = await Message.find(query).sort({ createdAt: -1 }).limit(limit).populate('reply_to', REPLY_PREVIEW_FIELDS);
 
     res.json({ messages: messages.reverse(), hasMore: messages.length === limit });
   } catch (error) {
@@ -131,13 +134,24 @@ const getMessages = async (req, res, next) => {
 const sendMessage = async (req, res, next) => {
   try {
     const conversation = await loadOwnedConversation(req);
-    const { type = 'text', text, media_id, is_voice_note, client_id } = req.body;
+    const { type = 'text', text, media_id, is_voice_note, client_id, reply_to } = req.body;
 
     if (!['text', 'image', 'video', 'audio'].includes(type)) {
       return res.status(400).json({ message: 'type must be text, image, video or audio' });
     }
 
     let messageData = { conversation: conversation.id, sender: req.user.id, type };
+
+    if (reply_to) {
+      if (!mongoose.isValidObjectId(reply_to)) {
+        return res.status(400).json({ message: 'reply_to is not a valid message id' });
+      }
+      const repliedMessage = await Message.findOne({ _id: reply_to, conversation: conversation.id });
+      if (!repliedMessage) {
+        return res.status(400).json({ message: 'reply_to must reference a message in this conversation' });
+      }
+      messageData.reply_to = repliedMessage.id;
+    }
 
     if (type === 'text') {
       if (!text || !text.trim()) return res.status(400).json({ message: 'text is required for a text message' });
@@ -170,6 +184,9 @@ const sendMessage = async (req, res, next) => {
     }
 
     const message = await Message.create(messageData);
+    if (message.reply_to) {
+      await message.populate('reply_to', REPLY_PREVIEW_FIELDS);
+    }
 
     const otherParticipantId = getOtherParticipantId(conversation, req.user.id);
     const isCustomerSender = conversation.customer.toString() === req.user.id;

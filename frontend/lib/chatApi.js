@@ -17,24 +17,26 @@ export const getMessages = async (conversationId, { before } = {}) => {
   return data;
 };
 
-export const sendTextMessage = async (conversationId, text, { clientId } = {}) => {
+export const sendTextMessage = async (conversationId, text, { clientId, replyTo } = {}) => {
   const { data } = await api.post(`/chats/${conversationId}/messages`, {
     type: 'text',
     text,
     client_id: clientId,
+    reply_to: replyTo || undefined,
   });
   return data.message;
 };
 
 export const sendMediaMessage = async (
   conversationId,
-  { mediaId, mediaType, isVoiceNote, clientId }
+  { mediaId, mediaType, isVoiceNote, clientId, replyTo }
 ) => {
   const { data } = await api.post(`/chats/${conversationId}/messages`, {
     type: mediaType,
     media_id: mediaId,
     is_voice_note: mediaType === 'audio' ? !!isVoiceNote : undefined,
     client_id: clientId,
+    reply_to: replyTo || undefined,
   });
   return data.message;
 };

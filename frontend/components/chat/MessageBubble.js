@@ -12,6 +12,7 @@ import {
   MoreVertical,
   Music,
   Pencil,
+  Reply,
   RotateCcw,
   Trash2,
 } from 'lucide-react';
@@ -25,7 +26,30 @@ const DELETE_FOR_EVERYONE_WINDOW_MS = 60 * 60 * 1000;
 const canStillDeleteForEveryone = (message) =>
   Date.now() - new Date(message.createdAt).getTime() < DELETE_FOR_EVERYONE_WINDOW_MS;
 
-export default function MessageBubble({ message, isOwn, pending = false, onEdit, onDelete, onRetry, onDiscard }) {
+const quotedPreviewText = (replyTo) => {
+  if (!replyTo) return '';
+  if (replyTo.is_deleted_for_everyone) return 'This message was deleted';
+  if (replyTo.type === 'text') return replyTo.text || '';
+  if (replyTo.type === 'image') return '📷 Photo';
+  if (replyTo.type === 'video') return '🎥 Video';
+  if (replyTo.type === 'audio') return replyTo.media?.is_voice_note ? '🎤 Voice message' : '🎵 Audio';
+  return '';
+};
+
+export default function MessageBubble({
+  message,
+  isOwn,
+  pending = false,
+  highlighted = false,
+  viewerId,
+  otherParticipantName,
+  onEdit,
+  onDelete,
+  onRetry,
+  onDiscard,
+  onReply,
+  onJumpToReply,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -106,6 +130,11 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
     await onDelete?.(message.id, scope);
   };
 
+  const handleReplyClick = () => {
+    setMenuOpen(false);
+    onReply?.(message);
+  };
+
   const retryMedia = () => {
     setMediaError(false);
     setMediaRetryToken(Date.now());
@@ -115,7 +144,7 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
     ? 'bg-brand-600 text-white rounded-2xl rounded-tr-xs shadow-xs'
     : 'bg-white border border-ink-200/80 text-ink-900 rounded-2xl rounded-tl-xs shadow-xs';
 
-  const canShowMenu = !isInFlight && !isDeleted && (onEdit || onDelete);
+  const canShowMenu = !isInFlight && !isDeleted && (onEdit || onDelete || onReply);
   const mutedText = isOwn ? 'text-white/80' : 'text-ink-400';
 
   const MediaUnavailable = ({ label }) => (
@@ -140,7 +169,12 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
   );
 
   return (
-    <div className={`group flex items-center gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+    <div
+      id={`msg-${message.id}`}
+      className={`group flex items-center gap-2 rounded-xl transition-colors duration-500 ${
+        isOwn ? 'justify-end' : 'justify-start'
+      } ${highlighted ? 'bg-brand-100/70 ring-2 ring-brand-300' : ''}`}
+    >
       {canShowMenu && isOwn && (
         <div className="relative shrink-0" ref={menuRef}>
           <MessageMenuButton onClick={() => setMenuOpen((v) => !v)} />
@@ -151,6 +185,7 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
               isOwn={isOwn}
               allowDeleteForEveryone={isOwn && canStillDeleteForEveryone(message)}
               confirmingDelete={confirmingDelete}
+              onReply={onReply ? handleReplyClick : null}
               onEdit={startEdit}
               onAskDelete={() => setConfirmingDelete(true)}
               onCancelConfirm={() => setConfirmingDelete(false)}
@@ -165,6 +200,25 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
           isInFlight ? 'opacity-75' : ''
         } ${hasFailed ? 'ring-1 ring-rose-400' : ''}`}
       >
+        {!isDeleted && message.reply_to && (
+          <button
+            type="button"
+            onClick={() => onJumpToReply?.(message.reply_to.id)}
+            className={`mb-1.5 block w-full max-w-full rounded-lg border-l-2 px-2.5 py-1.5 text-left transition-colors ${
+              isOwn
+                ? 'border-white/50 bg-white/10 hover:bg-white/15'
+                : 'border-brand-400 bg-brand-50/70 hover:bg-brand-50'
+            }`}
+          >
+            <p className={`truncate text-[11px] font-semibold ${isOwn ? 'text-white/90' : 'text-brand-700'}`}>
+              {message.reply_to.sender === viewerId ? 'You' : otherParticipantName || 'Them'}
+            </p>
+            <p className={`truncate text-[11px] ${isOwn ? 'text-white/70' : 'text-ink-500'}`}>
+              {quotedPreviewText(message.reply_to)}
+            </p>
+          </button>
+        )}
+
         {isDeleted && (
           <p className={`flex items-center gap-1.5 whitespace-pre-wrap break-words text-xs italic ${mutedText}`}>
             <Trash2 size={13} aria-hidden="true" />
@@ -348,6 +402,7 @@ export default function MessageBubble({ message, isOwn, pending = false, onEdit,
               isOwn={isOwn}
               allowDeleteForEveryone={false}
               confirmingDelete={confirmingDelete}
+              onReply={onReply ? handleReplyClick : null}
               onEdit={startEdit}
               onAskDelete={() => setConfirmingDelete(true)}
               onCancelConfirm={() => setConfirmingDelete(false)}
@@ -388,6 +443,7 @@ function MessageMenu({
   isOwn,
   allowDeleteForEveryone,
   confirmingDelete,
+  onReply,
   onEdit,
   onAskDelete,
   onCancelConfirm,
@@ -427,6 +483,16 @@ function MessageMenu({
 
   return (
     <div className={`absolute top-full z-30 mt-1 w-36 overflow-hidden rounded-xl border border-ink-100/80 bg-white/95 py-1 shadow-card backdrop-blur-md ${positionClass}`}>
+      {onReply && (
+        <button
+          type="button"
+          onClick={onReply}
+          className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-medium text-ink-700 hover:bg-ink-50 transition-colors"
+        >
+          <Reply size={13} aria-hidden="true" />
+          Reply
+        </button>
+      )}
       {editable && (
         <button
           type="button"
