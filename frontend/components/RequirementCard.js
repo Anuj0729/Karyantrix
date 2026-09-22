@@ -154,7 +154,7 @@ export default function RequirementCard({ requirement }) {
 
   return (
     <Card
-      className="group relative flex h-[500px] flex-col overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
+      className="group relative flex h-[430px] flex-col overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
       onClick={openDetail}
       role="button"
       tabIndex={0}
@@ -169,10 +169,6 @@ export default function RequirementCard({ requirement }) {
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Fixed-height flex column: every card is the same size no matter how
-          much or how little content (description length, media count) it has.
-          The description grows to fill the remaining space and clamps its
-          own text instead of pushing the card taller. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -242,8 +238,8 @@ export default function RequirementCard({ requirement }) {
           )}
         </div>
 
-        <div className="min-h-0 flex-1">
-          <p className="line-clamp-3 text-sm text-ink-700 leading-relaxed">{requirement.description}</p>
+        <div className="min-h-0">
+          <p className="line-clamp-2 text-sm text-ink-700 leading-relaxed">{requirement.description}</p>
         </div>
 
         {requirement.media?.length > 0 && (
