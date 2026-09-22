@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { Requirement, Notification, ProviderProfile, Category, UploadSession, Bid, User, Review, Booking } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
 const { canProviderViewRequirement } = require('../utils/requirementAccess');
+const { isAdminRole } = require('../utils/roles');
 
 const serializeAggregateDoc = (obj) => {
   const plain = JSON.parse(JSON.stringify(obj));
@@ -17,6 +18,7 @@ const POST_TYPES = ['bids', 'fixed'];
 const DEFAULT_NOTIFY_RADIUS_KM = 25;
 const DEFAULT_VIEW_RADIUS_KM = 5;
 const MAX_SERVICE_RADIUS_KM = 200;
+const MAX_MEDIA_ITEMS = 5;
 
 const distanceKm = (lat1, lng1, lat2, lng2) => {
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -86,6 +88,35 @@ const notifyNearbyProviders = async (requirement) => {
         profile.user,
         'New job near you',
         `A new "${serviceLabel}" requirement was posted near ${requirement.location.text}`,
+        { related_requirement: requirement._id }
+      );
+    })
+  );
+};
+
+const notifyEngagedProviders = async (requirement, changedFields) => {
+  if (!changedFields || changedFields.length === 0) return;
+
+  const bidProviderIds = await Bid.find({ requirement: requirement.id }).distinct('provider');
+  const interestedProviderIds = requirement.interested_providers.map((p) => p.provider);
+  const targetedProviderIds = requirement.target_provider ? [requirement.target_provider] : [];
+
+  const providerIds = Array.from(
+    new Set([...bidProviderIds, ...interestedProviderIds, ...targetedProviderIds].map((id) => id.toString()))
+  );
+  if (providerIds.length === 0) return;
+
+  const serviceLabel = requirement.services.join(', ');
+  const changeSummary = changedFields.join(', ');
+  const requirementJson = requirement.toJSON();
+
+  await Promise.all(
+    providerIds.map((providerId) => {
+      emitToUser(providerId, 'requirement:updated', requirementJson);
+      return notify(
+        providerId,
+        'Requirement updated',
+        `The "${serviceLabel}" requirement you're engaged with was updated (${changeSummary}).`,
         { related_requirement: requirement._id }
       );
     })
@@ -217,14 +248,18 @@ const createRequirement = async (req, res, next) => {
 const getRequirementById = async (req, res, next) => {
   try {
     const requirement = await Requirement.findById(req.params.id)
-      .populate({ path: 'customer', select: 'id name avatar_url is_verified createdAt' })
+      .populate({
+        path: 'customer',
+        select:
+          'id name avatar_url is_verified createdAt customer_rating_avg customer_rating_count customer_jobs_completed',
+      })
       .populate({ path: 'categories', select: 'id name slug' });
     if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
 
     const viewerRole = req.user?.role;
     const viewerId = req.user?.id ? String(req.user.id) : null;
     const isOwner = viewerRole === 'customer' && String(requirement.customer.id) === viewerId;
-    const isAdmin = viewerRole === 'admin';
+    const isAdmin = isAdminRole(viewerRole);
 
     // A booking request targeted at one specific provider stays private to that provider,
     // the customer who sent it, and admins - mirrors the visibility rules in getFeed().
@@ -244,6 +279,13 @@ const getRequirementById = async (req, res, next) => {
 
     const json = requirement.toJSON();
 
+    // Jobs done by this customer: same review-driven counter used for providers
+    // (bumped in reviewController once a provider reviews them after their booking is
+    // actually completed), shown on the client profile panel alongside their rating.
+    if (json.customer) {
+      json.customer.jobs_done = json.customer.customer_jobs_completed || 0;
+    }
+
     const { lat, lng } = req.query;
     const hasQueryLocation = lat !== undefined && lng !== undefined && lat !== '' && lng !== '';
     if (hasQueryLocation && typeof requirement.location?.lat === 'number' && typeof requirement.location?.lng === 'number') {
@@ -256,6 +298,19 @@ const getRequirementById = async (req, res, next) => {
     }
 
     json.is_owner = isOwner;
+
+    // Whether the interest list belongs to the viewer's own "I'm interested" taps, and whether they've
+    // already tapped it - lets the button stay disabled after a refresh instead of only after a click.
+    json.interested_count = Array.isArray(json.interested_providers) ? json.interested_providers.length : 0;
+    if (viewerRole === 'provider' && !isAdmin) {
+      json.i_am_interested = requirement.interested_providers.some((i) => String(i.provider) === viewerId);
+    }
+    // The raw interested_providers subdocuments (provider ids + private messages) are only meant for
+    // the owner and admins - everyone else gets the count above via the dedicated /interested endpoint,
+    // which applies its own per-viewer rules (message hidden from other providers, etc).
+    if (!isOwner && !isAdmin) {
+      delete json.interested_providers;
+    }
 
     res.json({ requirement: json });
   } catch (error) {
@@ -277,12 +332,12 @@ const getFeed = async (req, res, next) => {
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.max(1, Number(limit) || 20);
 
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = isAdminRole(req.user?.role);
     const viewerObjectId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : null;
 
     let viewerRadiusKm = DEFAULT_VIEW_RADIUS_KM;
     if (req.user) {
-      if (req.user.role === 'admin') {
+      if (isAdminRole(req.user.role)) {
         viewerRadiusKm = null;
       } else if (req.user.role === 'provider') {
         const providerProfile = await ProviderProfile.findOne({ user: req.user.id }).select('service_radius_km location');
@@ -444,21 +499,41 @@ const getInterestedProviders = async (req, res, next) => {
       select: 'id name avatar_url',
     });
     if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
-    if (requirement.customer.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You can only view interest on your own requirement' });
+
+    const isOwner = requirement.customer.toString() === req.user.id;
+
+    // Not the owner: only providers who could see this post at all get to see who else is
+    // interested in it (same rule bid-visible providers get on "bids" posts), and they only
+    // get the list itself - no one's private message to the customer, no hiring.
+    if (!isOwner) {
+      if (req.user.role !== 'provider' || !(await canProviderViewRequirement(requirement, req.user.id))) {
+        return res.status(403).json({ message: 'This requirement is not available to you' });
+      }
     }
 
-    const review = requirement.status === 'closed' ? await Review.findOne({ requirement: requirement.id }) : null;
-    const booking = requirement.status === 'closed' ? await Booking.findOne({ requirement: requirement.id }).select('id status') : null;
+    const review = isOwner && requirement.status === 'closed' ? await Review.findOne({ requirement: requirement.id }) : null;
+    const booking =
+      isOwner && requirement.status === 'closed'
+        ? await Booking.findOne({ requirement: requirement.id }).select('id status')
+        : null;
+
+    const interestedProviders = isOwner
+      ? requirement.interested_providers
+      : requirement.interested_providers.map((entry) => ({
+          provider: entry.provider,
+          created_at: entry.created_at,
+          is_mine: String(entry.provider?.id || entry.provider) === String(req.user.id),
+        }));
 
     res.json({
       requirement_id: requirement.id,
       requirement_status: requirement.status,
       hired_provider: requirement.hired_provider,
+      viewer_role: isOwner ? 'customer' : 'provider',
       reviewed: !!review,
       review,
       booking_status: booking ? booking.status : null,
-      interested_providers: requirement.interested_providers,
+      interested_providers: interestedProviders,
     });
   } catch (error) {
     next(error);
@@ -491,10 +566,21 @@ const updateRequirement = async (req, res, next) => {
       return res.status(400).json({ message: 'This requirement can no longer be edited - a provider has already been hired' });
     }
 
+    // Snapshot the pre-edit values so we can tell engaged providers exactly what changed.
+    const original = {
+      description: requirement.description,
+      budget: requirement.budget,
+      services: [...requirement.services],
+      location: { text: requirement.location.text, lat: requirement.location.lat, lng: requirement.location.lng },
+      media: requirement.media.map((m) => m.url),
+      post_type: requirement.post_type,
+      experience_levels: [...requirement.experience_levels],
+    };
+
     const { description, location_text, lat, lng, budget } = req.body;
     const servicesProvided = req.body.services !== undefined || req.body.service !== undefined;
     const experienceProvided = req.body.experience_levels !== undefined || req.body.experience_required !== undefined;
-    const mediaProvided = req.body.media_ids !== undefined;
+    const mediaProvided = req.body.media_ids !== undefined || req.body.existing_media !== undefined;
 
     if (servicesProvided) {
       const services = toArray(req.body.services ?? req.body.service);
@@ -564,17 +650,36 @@ const updateRequirement = async (req, res, next) => {
 
     if (mediaProvided) {
       const mediaIds = toArray(req.body.media_ids);
-      let resolvedMedia;
-      try {
-        resolvedMedia = await resolveMediaFromSessions(mediaIds, req.user.id);
-      } catch (mediaError) {
-        return res.status(mediaError.status || 400).json({ message: mediaError.message });
+
+      // Media the customer chose to keep from the original post. Only media that already belongs to
+      // this requirement is honoured - matched by URL - so the request body can't smuggle in arbitrary URLs.
+      const existingMediaInput = Array.isArray(req.body.existing_media) ? req.body.existing_media : [];
+      const currentMediaByUrl = new Map(requirement.media.map((m) => [m.url, m]));
+      const keptMedia = existingMediaInput
+        .map((item) => currentMediaByUrl.get(typeof item === 'string' ? item : item?.url))
+        .filter(Boolean)
+        .map((m) => ({ url: m.url, type: m.type }));
+
+      let resolvedMedia = [];
+      if (mediaIds.length > 0) {
+        try {
+          resolvedMedia = await resolveMediaFromSessions(mediaIds, req.user.id);
+        } catch (mediaError) {
+          return res.status(mediaError.status || 400).json({ message: mediaError.message });
+        }
       }
-      requirement.media = resolvedMedia.map(({ url, type }) => ({ url, type }));
-      await UploadSession.updateMany(
-        { _id: { $in: resolvedMedia.map((m) => m.session.id) } },
-        { $set: { consumed: true } }
+
+      requirement.media = [...keptMedia, ...resolvedMedia.map(({ url, type }) => ({ url, type }))].slice(
+        0,
+        MAX_MEDIA_ITEMS
       );
+
+      if (resolvedMedia.length > 0) {
+        await UploadSession.updateMany(
+          { _id: { $in: resolvedMedia.map((m) => m.session.id) } },
+          { $set: { consumed: true } }
+        );
+      }
     }
 
     await requirement.save();
@@ -584,6 +689,28 @@ const updateRequirement = async (req, res, next) => {
       { path: 'categories', select: 'id name slug' },
       { path: 'interested_providers.provider', select: 'id name avatar_url' },
     ]);
+
+    // Work out exactly what changed so engaged providers get a meaningful notification.
+    const changedFields = [];
+    if (original.description !== requirement.description) changedFields.push('description');
+    if (original.budget !== requirement.budget) changedFields.push('budget');
+    if (JSON.stringify(original.services) !== JSON.stringify(requirement.services)) changedFields.push('services');
+    if (
+      original.location.text !== requirement.location.text ||
+      original.location.lat !== requirement.location.lat ||
+      original.location.lng !== requirement.location.lng
+    ) {
+      changedFields.push('location');
+    }
+    if (JSON.stringify(original.media) !== JSON.stringify(requirement.media.map((m) => m.url))) {
+      changedFields.push('photos/videos');
+    }
+    if (original.post_type !== requirement.post_type) changedFields.push('response type');
+    if (JSON.stringify(original.experience_levels) !== JSON.stringify(requirement.experience_levels)) {
+      changedFields.push('experience level');
+    }
+
+    notifyEngagedProviders(requirement, changedFields).catch((err) => undefined);
 
     res.json({ message: 'Requirement updated', requirement: populated });
   } catch (error) {

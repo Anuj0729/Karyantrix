@@ -26,6 +26,7 @@ import {
 import dynamic from 'next/dynamic';
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import CoverPhotoEditor from '../CoverPhotoEditor';
 import api from '../../lib/api';
 import { priceTypeShortLabel } from '../../lib/priceType';
 import ChangePasswordCard from '../ChangePasswordCard';
@@ -384,7 +385,12 @@ export default function MyProviderProfileView({ profile, services, reviews, onEd
     <div className="flex flex-col gap-5">
 
       <motion.div {...fadeUp} transition={{ duration: 0.35, ease: 'easeOut' }}>
-        <div className="relative h-[100px] overflow-hidden rounded-t-2xl border border-b-0 border-ink-100 bg-gradient-to-r from-brand-500/15 via-brand-400/5 to-transparent sm:h-[130px]" />
+        <div className="relative overflow-hidden rounded-t-2xl border border-b-0 border-ink-100">
+          <CoverPhotoEditor
+            className="h-[100px] sm:h-[130px]"
+            fallbackClassName="bg-gradient-to-r from-brand-500/15 via-brand-400/5 to-transparent"
+          />
+        </div>
 
         <div className="relative z-10 mx-3 -mt-6 rounded-xl border border-ink-100 bg-white px-5 py-4 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3">

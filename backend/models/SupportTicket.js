@@ -4,7 +4,7 @@ const toJSONPlugin = require('../utils/toJSON');
 const ticketMessageSchema = new mongoose.Schema(
   {
     sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    sender_role: { type: String, enum: ['customer', 'provider', 'admin'], required: true },
+    sender_role: { type: String, enum: ['customer', 'provider', 'admin', 'staff'], required: true },
     message: { type: String, required: true, trim: true, maxlength: 2000 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

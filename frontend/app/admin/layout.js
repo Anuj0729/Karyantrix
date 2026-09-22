@@ -7,6 +7,7 @@ import {
   BarChart3,
   Ban,
   Briefcase,
+  ClipboardList,
   ExternalLink,
   Flag,
   FolderOpen,
@@ -77,6 +78,11 @@ const ADMIN_NAV = [
     href: '/admin/analytics',
     label: 'Analytics',
     icon: BarChart3,
+  },
+  {
+    href: '/admin/audit-logs',
+    label: 'Audit Log',
+    icon: ClipboardList,
   },
 ];
 
@@ -347,7 +353,7 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
+    <ProtectedRoute allowedRoles={['admin', 'staff']}>
       <div className="min-h-screen pb-16">
         {/* =====================================================
             ADMIN COMMAND CENTER

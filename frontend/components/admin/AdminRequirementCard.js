@@ -49,6 +49,10 @@ export default function AdminRequirementCard({ requirement: r }) {
             src={customer.avatar_url ? mediaUrl(customer.avatar_url) : AVATAR_FALLBACK}
             alt={customer.name || 'Customer'}
             className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-ink-100"
+            width={36}
+            height={36}
+            loading="lazy"
+            decoding="async"
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink-900 leading-tight">{customer.name || 'Customer'}</p>
@@ -85,6 +89,8 @@ export default function AdminRequirementCard({ requirement: r }) {
               src={mediaUrl(primaryMedia.url)}
               alt={(r.services || []).join(', ') || 'Requirement photo'}
               className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
             />
           )
         ) : (

@@ -495,6 +495,48 @@ const removeAvatar = async (req, res, next) => {
   }
 };
 
+// Cover photo add/update: same storage pattern as the avatar (single image, replaces
+// whatever was there before, old file cleaned up from storage). Available to every role.
+const updateCoverPhoto = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No image file was uploaded' });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const ext = (req.file.originalname.match(/\.[a-zA-Z0-9]+$/) || ['.jpg'])[0].toLowerCase();
+    const key = `covers/${user.id}-${Date.now()}${ext}`;
+    const { url } = await saveBuffer({ key, buffer: req.file.buffer, contentType: req.file.mimetype });
+
+    const previousCoverUrl = user.cover_photo_url;
+    user.cover_photo_url = url;
+    await user.save();
+
+    if (previousCoverUrl) await deleteByUrl(previousCoverUrl);
+
+    res.json({ message: 'Cover photo updated', user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const removeCoverPhoto = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const previousCoverUrl = user.cover_photo_url;
+    user.cover_photo_url = null;
+    await user.save();
+
+    if (previousCoverUrl) await deleteByUrl(previousCoverUrl);
+
+    res.json({ message: 'Cover photo removed', user });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const requestContactUpdateOtp = async (req, res, next) => {
   try {
     const { type, value } = req.body;
@@ -620,6 +662,8 @@ module.exports = {
   updateProfile,
   updateAvatar,
   removeAvatar,
+  updateCoverPhoto,
+  removeCoverPhoto,
   requestContactUpdateOtp,
   verifyContactUpdateOtp,
   refresh,

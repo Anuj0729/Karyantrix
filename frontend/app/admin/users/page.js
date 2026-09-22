@@ -13,6 +13,7 @@ import { RowSkeleton } from '../../../components/ui/Skeleton';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
 import usePagination from '../../../lib/usePagination';
 import Pagination from '../../../components/admin/Pagination';
+import { useAuth } from '../../../context/AuthContext';
 
 function DeactivateUserModal({ user, onClose, onConfirmed }) {
   const { toast } = useToast();
@@ -83,17 +84,21 @@ function DeactivateUserModal({ user, onClose, onConfirmed }) {
   );
 }
 
-const ROLE_FILTERS = ['', 'customer', 'provider', 'admin'];
+const ROLE_FILTERS = ['', 'customer', 'provider', 'admin', 'staff'];
 
 function AdminUsersContent() {
   const searchParams = useSearchParams();
   const roleParam = ROLE_FILTERS.includes(searchParams.get('role')) ? searchParams.get('role') : '';
+
+  const { user: currentUser } = useAuth();
+  const isRealAdmin = currentUser?.role === 'admin';
 
   const [users, setUsers] = useState([]);
   const [roleFilter, setRoleFilter] = useState(roleParam);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [roleBusyId, setRoleBusyId] = useState(null);
   const { toast } = useToast();
 
   const load = () => {
@@ -133,6 +138,21 @@ function AdminUsersContent() {
     await api.patch(`/admin/providers/${id}/approve`);
     toast('Provider approved', { type: 'success' });
     load();
+  };
+
+  // Granting/revoking staff access (same permissions as admin) is restricted to real admin
+  // accounts server-side too, so this button only renders for them.
+  const changeRole = async (u, role) => {
+    setRoleBusyId(u.id);
+    try {
+      await api.patch(`/admin/users/${u.id}/role`, { role });
+      toast(role === 'staff' ? `${u.name} is now a staff member` : `${u.name} is no longer staff`, { type: 'success' });
+      load();
+    } catch (err) {
+      toast(err.response?.data?.message || 'Could not update this user\u2019s role', { type: 'error' });
+    } finally {
+      setRoleBusyId(null);
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -219,6 +239,8 @@ function AdminUsersContent() {
                         className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold capitalize ${
                           u.role === 'admin'
                             ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20'
+                            : u.role === 'staff'
+                            ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
                             : u.role === 'provider'
                             ? 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20'
                             : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
@@ -251,6 +273,16 @@ function AdminUsersContent() {
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {isRealAdmin && (u.role === 'customer' || u.role === 'staff') && (
+                          <button
+                            type="button"
+                            disabled={roleBusyId === u.id}
+                            onClick={() => changeRole(u, u.role === 'staff' ? 'customer' : 'staff')}
+                            className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                          >
+                            {u.role === 'staff' ? 'Remove staff' : 'Make staff'}
+                          </button>
+                        )}
                         {u.role === 'provider' && !u.providerProfile?.is_approved && (
                           <button
                             type="button"

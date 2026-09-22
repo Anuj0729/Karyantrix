@@ -11,8 +11,8 @@ const router = express.Router();
 
 router.get('/', getServiceCatalog);
 
-router.post('/', protect, authorize('admin'), createServiceCatalog);
-router.put('/:id', protect, authorize('admin'), updateServiceCatalog);
-router.delete('/:id', protect, authorize('admin'), deleteServiceCatalog);
+router.post('/', protect, authorize('admin', 'staff'), createServiceCatalog);
+router.put('/:id', protect, authorize('admin', 'staff'), updateServiceCatalog);
+router.delete('/:id', protect, authorize('admin', 'staff'), deleteServiceCatalog);
 
 module.exports = router;

@@ -33,6 +33,37 @@ const nextConfig = {
     ],
   },
 
+  async headers() {
+    return [
+      {
+        // The service worker file must always be revalidated, otherwise
+        // browsers can pin an old worker and block PWA updates for users.
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
+        source: '/manifest.webmanifest',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' }],
+      },
+      {
+        source: '/:path(icon-.*\\.png|icon\\.png|logo\\.png)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        // Security/SEO-adjacent hardening headers applied site-wide.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+    ];
+  },
+
   async redirects() {
     return [
       { 

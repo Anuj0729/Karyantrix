@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -92,9 +93,11 @@ export default function Footer() {
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-brand-600 via-brand-700 to-accent-500 shadow-glow-brand"
             >
-              <img
+              <Image
                 src="/logo.png"
                 alt="Karyantrix"
+                width={40}
+                height={40}
                 className="h-full w-full object-cover p-1"
               />
             </motion.div>

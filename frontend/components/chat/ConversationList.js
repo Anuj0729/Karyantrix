@@ -97,7 +97,7 @@ export default function ConversationList({ activeId, getHref }) {
               >
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-ink-100 ring-2 ring-white shadow-xs">
                   {avatarSrc ? (
-                    <img src={avatarSrc} alt={c.other_participant?.name} className="h-full w-full object-cover" />
+                    <img src={avatarSrc} alt={c.other_participant?.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-brand-50 text-brand-700 font-bold text-xs">
                       {c.other_participant?.name ? c.other_participant.name.slice(0, 2).toUpperCase() : <UserRound size={18} />}

@@ -186,6 +186,49 @@ const toggleUserActive = async (req, res, next) => {
   }
 };
 
+// Promote a customer/provider to 'staff' (same functionality as admin) or demote a staff account
+// back down. Only reachable by a real 'admin' (see adminRoutes.js) so staff can't grant themselves
+// or others admin-level access, and an existing admin account can never be re-labelled this way.
+const setUserRole = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    if (!['staff', 'customer'].includes(role)) {
+      return res.status(400).json({ message: "role must be 'staff' (to grant) or 'customer' (to revoke)" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.id === req.user.id) {
+      return res.status(400).json({ message: 'You cannot change your own role' });
+    }
+    if (user.role === 'admin') {
+      return res.status(400).json({ message: 'Admin accounts cannot be reassigned here' });
+    }
+    if (role === 'staff' && user.role !== 'customer') {
+      return res.status(400).json({ message: 'Only customer accounts can be promoted to staff' });
+    }
+    if (role === 'customer' && user.role !== 'staff') {
+      return res.status(400).json({ message: 'This user is not a staff member' });
+    }
+
+    user.role = role;
+    await user.save();
+
+    emitToUser(user.id, 'notification', {
+      title: role === 'staff' ? 'You are now a staff member' : 'Staff access removed',
+      message:
+        role === 'staff'
+          ? 'An admin has granted you staff access, with the same permissions as the admin panel.'
+          : 'Your staff access has been removed by an admin.',
+    });
+
+    res.json({ message: `User role updated to ${role}`, user });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const approveProvider = async (req, res, next) => {
   try {
     const profile = await ProviderProfile.findOne({ user: req.params.id });
@@ -387,6 +430,7 @@ module.exports = {
   getDashboardStats,
   getUsers,
   toggleUserActive,
+  setUserRole,
   approveProvider,
   getApplications,
   reviewApplication,

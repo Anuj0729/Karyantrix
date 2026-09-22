@@ -5,6 +5,7 @@ import { Camera, CircleAlert, Mail, MapPin, Pencil, Phone, ShieldCheck, Trash2, 
 import { useRef, useState } from 'react';
 import ChangePasswordCard from '../ChangePasswordCard';
 import ContactUpdateCard from '../ContactUpdateCard';
+import CoverPhotoEditor from '../CoverPhotoEditor';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../lib/api';
 import Button from '../ui/Button';
@@ -200,8 +201,9 @@ export default function AdminProfileView() {
       <h1 className="mb-5 font-display text-lg font-bold text-ink-900">My Profile</h1>
 
       <motion.div {...fadeUp}>
-        <Card className="p-5 sm:p-6" hover={false}>
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
+        <Card className="overflow-hidden p-0" hover={false}>
+          <CoverPhotoEditor className="h-24 sm:h-32" />
+          <div className="flex flex-col items-center gap-4 p-5 text-center sm:flex-row sm:items-center sm:p-6 sm:text-left">
             <AdminAvatarEditor />
             <div className="min-w-0">
               <h2 className="truncate font-display text-lg font-bold text-ink-900">{user.name}</h2>

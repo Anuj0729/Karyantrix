@@ -23,7 +23,7 @@ router.post('/', protect, authorize('customer'), createRequirement);
 router.put('/:id', protect, authorize('customer'), updateRequirement);
 router.delete('/:id', protect, authorize('customer'), deleteRequirement);
 router.post('/:id/interest', protect, authorize('provider'), expressInterest);
-router.get('/:id/interested', protect, authorize('customer'), getInterestedProviders);
+router.get('/:id/interested', protect, authorize('customer', 'provider'), getInterestedProviders);
 router.patch('/:id/interested/:providerId/hire', protect, authorize('customer'), hireInterestedProvider);
 router.patch('/:id/close', protect, authorize('customer'), closeRequirement);
 

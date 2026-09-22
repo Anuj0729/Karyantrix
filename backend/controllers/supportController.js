@@ -1,5 +1,6 @@
 const { SupportTicket, User, Notification } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
+const { ADMIN_ROLES, isAdminRole } = require('../utils/roles');
 
 const CATEGORIES = ['payment', 'payout', 'booking', 'account', 'technical', 'other'];
 const OPEN_STATUSES = ['open', 'in_progress'];
@@ -10,11 +11,11 @@ const notify = async (userId, title, message) => {
 };
 
 const notifyAllAdmins = async (title, message) => {
-  const admins = await User.find({ role: 'admin' }).select('_id');
+  const admins = await User.find({ role: { $in: ADMIN_ROLES } }).select('_id');
   await Promise.all(admins.map((a) => notify(a._id, title, message)));
 };
 
-const canAccessTicket = (ticket, user) => user.role === 'admin' || ticket.user.toString() === user.id;
+const canAccessTicket = (ticket, user) => isAdminRole(user.role) || ticket.user.toString() === user.id;
 
 const createTicket = async (req, res, next) => {
   try {
@@ -96,7 +97,7 @@ const addMessage = async (req, res, next) => {
     ticket.messages.push({ sender: req.user.id, sender_role: senderRole, message: message.trim() });
     ticket.last_message_at = new Date();
 
-    if (senderRole === 'admin') {
+    if (isAdminRole(senderRole)) {
       if (ticket.status === 'open') ticket.status = 'in_progress';
       await ticket.save();
       await notify(ticket.user, `Reply on your ticket: ${ticket.subject}`, message.trim().slice(0, 200));

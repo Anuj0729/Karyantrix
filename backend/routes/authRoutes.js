@@ -15,6 +15,8 @@ const {
   updateProfile,
   updateAvatar,
   removeAvatar,
+  updateCoverPhoto,
+  removeCoverPhoto,
   requestContactUpdateOtp,
   verifyContactUpdateOtp,
   refresh,
@@ -45,6 +47,9 @@ router.get('/me', protect, getMe);
 router.put('/me', protect, updateProfile);
 router.post('/me/avatar', protect, uploadAvatar.single('avatar'), updateAvatar);
 router.delete('/me/avatar', protect, removeAvatar);
+
+router.post('/me/cover', protect, uploadAvatar.single('cover'), updateCoverPhoto);
+router.delete('/me/cover', protect, removeCoverPhoto);
 
 router.post('/me/contact/request-otp', protect, authLimiter, requestContactUpdateOtp);
 router.post('/me/contact/verify-otp', protect, authLimiter, verifyContactUpdateOtp);

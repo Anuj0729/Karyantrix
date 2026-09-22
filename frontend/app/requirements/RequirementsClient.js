@@ -102,14 +102,14 @@ export default function RequirementsClient() {
             </h1>
             <p className="mt-1 text-xs text-ink-500">
               {geoStatus === 'ready' && coords
-                ? user?.role === 'admin'
+                ? user?.role === 'admin' || user?.role === 'staff'
                   ? 'Showing all active requirements'
                   : user?.role === 'provider'
                     ? 'Showing jobs within your service radius of current location'
                     : user
                       ? `Showing requirements within your ${user.requirement_radius_km ?? 5} km radius`
                       : 'Showing requirements within 5 km of your location'
-                : user?.role === 'admin'
+                : user?.role === 'admin' || user?.role === 'staff'
                   ? 'Showing all active requirements'
                   : user?.role === 'provider'
                     ? 'Enable location to see jobs within your service radius'

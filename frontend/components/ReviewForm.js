@@ -51,7 +51,7 @@ export function StarPicker({ value, onChange }) {
   );
 }
 
-export default function ReviewForm({ requirementId, existingReview, onSaved, className = '' }) {
+export default function ReviewForm({ requirementId, existingReview, revieweeName, revieweeRole, onSaved, className = '' }) {
   const { toast } = useToast();
   const isEdit = !!existingReview;
   const [rating, setRating] = useState(existingReview?.rating || 5);
@@ -59,6 +59,8 @@ export default function ReviewForm({ requirementId, existingReview, onSaved, cla
   const [comment, setComment] = useState(existingReview?.comment || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const who = revieweeName || (revieweeRole === 'customer' ? 'the customer' : 'the provider you hired');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,7 +89,7 @@ export default function ReviewForm({ requirementId, existingReview, onSaved, cla
   return (
     <form onSubmit={handleSubmit} className={`space-y-4 ${className}`}>
       <p className="text-sm font-semibold text-ink-900">
-        {isEdit ? 'Update your review' : 'Leave a review for the provider you hired'}
+        {isEdit ? `Update your review of ${who}` : `Leave a review for ${who}`}
       </p>
 
       <Field label="Overall rating" required>

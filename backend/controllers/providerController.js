@@ -3,6 +3,7 @@ const { emitToUser } = require('../sockets/socketHandler');
 const { resolveViewerRadiusKm, parseViewerCoords, serializeGeoDoc } = require('../utils/geo');
 const { issueAuthTokens } = require('../utils/authCookies');
 const { hasApprovedProviderProfile, canSwitchToProvider } = require('../utils/userPayload');
+const { ADMIN_ROLES } = require('../utils/roles');
 
 const ACTIVE_BOOKING_STATUSES = ['awaiting_advance', 'in_progress', 'work_completed'];
 
@@ -279,7 +280,7 @@ const submitApplication = async (req, res, next) => {
     profile.application_feedback = null;
     await profile.save();
 
-    const admins = await User.find({ role: 'admin' }).select('_id');
+    const admins = await User.find({ role: { $in: ADMIN_ROLES } }).select('_id');
     const applicant = await User.findById(req.user.id).select('name');
     await Promise.all(
       admins.map(async (admin) => {

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, BellOff, CheckCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +12,7 @@ export default function NotificationBell() {
   const { notifications = [], setNotifications } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const router = useRouter();
 
   const unreadCount = notifications.length;
 
@@ -30,6 +32,20 @@ export default function NotificationBell() {
     }
     setNotifications([]);
     setOpen(false);
+  };
+
+  const handleNotificationClick = async (n) => {
+    const id = n.id || n._id;
+    setNotifications((prev) => prev.filter((x) => (x.id || x._id) !== id));
+    setOpen(false);
+    try {
+      await api.patch(`/notifications/${id}/read`);
+    } catch (err) {
+
+    }
+    if (n.related_requirement) {
+      router.push(`/requirements/${n.related_requirement}`);
+    }
   };
 
   return (
@@ -240,14 +256,18 @@ export default function NotificationBell() {
               ) : (
                 <div className="divide-y divide-ink-100/80">
                   {notifications.map((n, i) => (
-                    <div
+                    <button
+                      type="button"
                       key={n.id || n._id || i}
+                      onClick={() => handleNotificationClick(n)}
                       className="
                   flex
+                  w-full
                   items-start
                   gap-3
                   px-4
                   py-3.5
+                  text-left
                   transition-colors
                   hover:bg-ink-50/70
                 "
@@ -287,7 +307,7 @@ export default function NotificationBell() {
                           </p>
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

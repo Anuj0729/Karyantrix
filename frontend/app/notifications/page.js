@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BellOff, CheckCheck, Sparkles } from 'lucide-react';
 import api from '../../lib/api';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -24,6 +25,7 @@ const timeAgo = (dateStr) => {
 
 function NotificationsContent() {
   const { user, setNotifications: setUnreadNotifications } = useAuth();
+  const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,6 +64,12 @@ function NotificationsContent() {
     } catch (err) {
 
     }
+  };
+
+  const handleNotificationClick = (n) => {
+    const id = n.id || n._id;
+    if (!n.is_read) markOneRead(id);
+    if (n.related_requirement) router.push(`/requirements/${n.related_requirement}`);
   };
 
   const markAllRead = async () => {
@@ -122,7 +130,7 @@ function NotificationsContent() {
               <button
                 key={id}
                 type="button"
-                onClick={() => !n.is_read && markOneRead(id)}
+                onClick={() => handleNotificationClick(n)}
                 className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
                   n.is_read
                     ? 'border-ink-100 bg-white'
@@ -155,7 +163,7 @@ function NotificationsContent() {
 
 export default function NotificationsPage() {
   return (
-    <ProtectedRoute allowedRoles={['customer', 'provider', 'admin']}>
+    <ProtectedRoute allowedRoles={['customer', 'provider', 'admin', 'staff']}>
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
         <NotificationsContent />
       </div>

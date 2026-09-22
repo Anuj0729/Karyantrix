@@ -4,6 +4,7 @@ const { getRazorpay } = require('../config/razorpay');
 const { toPaise } = require('../utils/payments');
 const { emitToUser } = require('../sockets/socketHandler');
 const { saveBuffer } = require('../services/storageService');
+const { isAdminRole } = require('../utils/roles');
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -59,7 +60,7 @@ const getBooking = async (req, res, next) => {
   try {
     const booking = await populateBooking(Booking.findById(req.params.id));
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    if (booking.customer.id !== req.user.id && booking.provider.id !== req.user.id && req.user.role !== 'admin') {
+    if (booking.customer.id !== req.user.id && booking.provider.id !== req.user.id && !isAdminRole(req.user.role)) {
       return res.status(403).json({ message: 'You do not have access to this booking' });
     }
     res.json({ booking });

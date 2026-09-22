@@ -1,30 +1,12 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-    ChevronLeft,
-    ChevronRight,
-    Gavel,
-    MapPin,
-    Maximize2,
-    MessageSquare,
-    Pencil,
-    Send,
-    Trash2,
-    X,
-} from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { ChevronLeft, ChevronRight, MapPin, Maximize2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import api from '../lib/api';
 import Badge from './ui/Badge';
-import Button from './ui/Button';
 import Card from './ui/Card';
 import Portal from './ui/Portal';
-import { useToast } from './ui/Toast';
-const BidsModal = dynamic(() => import('./BidsModal'));
-const RequirementComposerModal = dynamic(() => import('./RequirementComposerModal'));
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
 
@@ -81,7 +63,7 @@ function MediaLightbox({ media, index, onNavigate, onClose }) {
                   playsInline
                 />
               ) : (
-                <img src={mediaUrl(item.url)} alt="Requirement attachment" className="h-full w-full object-contain" />
+                <img src={mediaUrl(item.url)} alt="Requirement attachment" className="h-full w-full object-contain" loading="lazy" decoding="async" />
               )}
             </motion.div>
 
@@ -163,18 +145,11 @@ function MediaLightbox({ media, index, onNavigate, onClose }) {
   );
 }
 
-export default function RequirementCard({ requirement, onUpdated }) {
-  const { user } = useAuth();
-  const { toast } = useToast();
+export default function RequirementCard({ requirement }) {
   const router = useRouter();
   const openDetail = () => router.push(`/requirements/${requirement.id}`);
   const customer = requirement.customer || {};
   const isFixedPrice = requirement.post_type === 'fixed';
-  const [interested, setInterested] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [bidsOpen, setBidsOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descClamped, setDescClamped] = useState(false);
@@ -185,36 +160,6 @@ export default function RequirementCard({ requirement, onUpdated }) {
     if (!el) return;
     setDescClamped(el.scrollHeight > el.clientHeight + 1);
   }, [requirement.description]);
-
-  const isOwner = user?.role === 'customer' && customer.id === user?.id;
-  const canEditOrDelete = isOwner && requirement.status === 'open';
-
-  const handleDelete = async () => {
-    if (!window.confirm('Delete this requirement? This cannot be undone.')) return;
-    try {
-      setDeleting(true);
-      await api.delete(`/requirements/${requirement.id}`);
-      toast('Requirement deleted', { type: 'success' });
-      onUpdated?.();
-    } catch (err) {
-      toast(err.response?.data?.message || 'Could not delete this requirement', { type: 'error' });
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleInterest = async () => {
-    try {
-      setSending(true);
-      await api.post(`/requirements/${requirement.id}/interest`, {});
-      setInterested(true);
-      toast('The customer has been notified', { type: 'success' });
-    } catch (err) {
-      toast(err.response?.data?.message || 'Could not send interest', { type: 'error' });
-    } finally {
-      setSending(false);
-    }
-  };
 
   return (
     <Card
@@ -241,6 +186,10 @@ export default function RequirementCard({ requirement, onUpdated }) {
                 src={customer.avatar_url ? mediaUrl(customer.avatar_url) : AVATAR_FALLBACK}
                 alt={customer.name || 'Customer'}
                 className="h-11 w-11 rounded-2xl object-cover ring-2 ring-ink-100 shadow-soft"
+                width={44}
+                height={44}
+                loading="lazy"
+                decoding="async"
               />
               <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-trust-500 ring-2 ring-white" />
             </div>
@@ -337,8 +286,8 @@ export default function RequirementCard({ requirement, onUpdated }) {
                 className="group/media relative cursor-pointer overflow-hidden rounded-2xl bg-ink-100 ring-1 ring-ink-200/50 shadow-soft"
               >
                 {m.type === 'video' ? (
-                  <div className="relative h-28 w-full bg-black/90 flex items-center justify-center">
-                    <video src={mediaUrl(m.url)} className="h-28 w-full object-cover opacity-80" muted playsInline />
+                  <div className="relative h-44 w-full bg-black/90 flex items-center justify-center">
+                    <video src={mediaUrl(m.url)} className="h-44 w-full object-cover opacity-80" muted playsInline />
                     <span className="absolute px-2 py-0.5 rounded-full bg-black/60 text-[10px] font-semibold text-white backdrop-blur-sm">
                       Video
                     </span>
@@ -347,7 +296,9 @@ export default function RequirementCard({ requirement, onUpdated }) {
                   <img
                     src={mediaUrl(m.url)}
                     alt={`${requirement.services?.[0] || 'Requirement'} media ${i + 1}`}
-                    className="h-28 w-full object-cover transition-transform duration-300 group-hover/media:scale-105"
+                    className="h-44 w-full object-cover transition-transform duration-300 group-hover/media:scale-105"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
                 {i === 2 && requirement.media.length > 3 && (
@@ -364,100 +315,16 @@ export default function RequirementCard({ requirement, onUpdated }) {
         )}
       </div>
 
-      <div
-        className="mt-5 pt-4 border-t border-ink-100/80 flex flex-wrap items-center justify-between gap-2.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {user?.role === 'provider' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            {!isFixedPrice && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setBidsOpen(true)}
-                className="flex-1 sm:flex-initial"
-                icon={<Gavel size={14} aria-hidden="true" />}
-              >
-                View bids &amp; bid
-              </Button>
-            )}
-            <Button
-              variant={interested ? 'secondary' : isFixedPrice ? 'primary' : 'outline'}
-              size="sm"
-              onClick={handleInterest}
-              disabled={interested}
-              loading={sending}
-              className="flex-1 sm:flex-initial"
-              icon={interested ? <MessageSquare size={14} aria-hidden="true" /> : <Send size={14} aria-hidden="true" />}
-            >
-              {interested ? 'Interested' : "I'm interested"}
-            </Button>
-          </div>
-        )}
-
-        {isOwner && (
-          <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setBidsOpen(true)}
-              icon={<Gavel size={14} aria-hidden="true" />}
-            >
-              {isFixedPrice ? 'View interest' : 'View bids'}
-            </Button>
-            {canEditOrDelete && (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditOpen(true)}
-                  icon={<Pencil size={14} aria-hidden="true" />}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  loading={deleting}
-                  className="text-danger-600 hover:text-danger-700 hover:bg-danger-50"
-                  icon={<Trash2 size={14} aria-hidden="true" />}
-                >
-                  Delete
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!user && <p className="text-xs text-ink-400 italic">Sign in as a provider to bid on this requirement</p>}
-      </div>
-
-      <div onClick={(e) => e.stopPropagation()}>
-        {requirement.media?.length > 0 && (
+      {requirement.media?.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()}>
           <MediaLightbox
             media={requirement.media}
             index={lightboxIndex}
             onNavigate={setLightboxIndex}
             onClose={() => setLightboxIndex(null)}
           />
-        )}
-
-        <BidsModal
-          open={bidsOpen}
-          onClose={() => setBidsOpen(false)}
-          requirement={requirement}
-          onRequirementUpdated={onUpdated}
-        />
-        {canEditOrDelete && (
-          <RequirementComposerModal
-            open={editOpen}
-            onClose={() => setEditOpen(false)}
-            requirement={requirement}
-            onSaved={onUpdated}
-          />
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   );
 }

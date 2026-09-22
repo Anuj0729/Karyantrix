@@ -20,6 +20,7 @@ const publicUser = async (user) => ({
   phone: user.phone,
   role: user.role,
   avatar_url: user.avatar_url,
+  cover_photo_url: user.cover_photo_url,
   can_switch_to_provider: await canSwitchToProvider(user),
 });
 

@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-    ArrowLeft,
     ArrowRight,
     BadgeCheck,
     Calendar,
@@ -17,20 +16,22 @@ import {
     Share2,
     ShieldCheck,
     Sparkles,
+    Star,
     Trash2,
     UserRound,
     Wallet,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import BookingCard from '../../components/BookingCard';
 import ChangePasswordCard from '../../components/ChangePasswordCard';
 import ContactUpdateCard from '../../components/ContactUpdateCard';
+import CoverPhotoEditor from '../../components/CoverPhotoEditor';
 import AdminProfileView from '../../components/admin/AdminProfileView';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ProviderProfileRoute from '../../components/provider/ProviderProfileRoute';
-import RequirementCard from '../../components/RequirementCard';
 import StatusBadge from '../../components/StatusBadge';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -346,7 +347,7 @@ function ProfileHeader({ stats }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
-  const [extra, setExtra] = useState({ isVerified: false, joined: null });
+  const [extra, setExtra] = useState({ isVerified: false, joined: null, ratingAvg: null, ratingCount: null });
 
   useEffect(() => {
     api
@@ -355,6 +356,8 @@ function ProfileHeader({ stats }) {
         setExtra({
           isVerified: !!data.user?.is_verified,
           joined: formatJoinedDate(data.user?.createdAt),
+          ratingAvg: data.user?.customer_rating_avg || 0,
+          ratingCount: data.user?.customer_rating_count || 0,
         });
       })
       .catch(() => {});
@@ -375,9 +378,7 @@ function ProfileHeader({ stats }) {
 
   return (
     <Card className="overflow-hidden p-0 rounded-3xl border border-ink-200/80 shadow-soft" hover={false}>
-      <div className="relative h-28 bg-gradient-to-r from-brand-600 via-brand-500 to-accent-500 sm:h-36">
-        <div className="absolute inset-0 bg-hero-mesh opacity-40 mix-blend-overlay" aria-hidden="true" />
-      </div>
+      <CoverPhotoEditor className="h-28 sm:h-36" />
 
       <div className="px-5 pb-5 sm:px-8 sm:pb-6">
         <div className="-mt-12 flex flex-col items-center gap-3 text-center sm:-mt-14 sm:flex-row sm:items-end sm:gap-5 sm:text-left">
@@ -425,9 +426,14 @@ function ProfileHeader({ stats }) {
           </div>
         )}
 
-        <div className="mt-5 flex items-center justify-center divide-x divide-ink-100 rounded-2xl border border-ink-100 bg-ink-50/50 sm:justify-start sm:gap-2 sm:divide-x-0 sm:border-0 sm:bg-transparent">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-y-2 divide-x divide-ink-100 rounded-2xl border border-ink-100 bg-ink-50/50 sm:flex-nowrap sm:justify-start sm:gap-2 sm:divide-x-0 sm:border-0 sm:bg-transparent">
           <StatItem value={stats.requirements} label="Requirements" icon={Sparkles} />
           <StatItem value={stats.bookings} label="Post History" icon={Wallet} />
+          <StatItem
+            value={extra.ratingCount === null ? null : extra.ratingCount > 0 ? extra.ratingAvg.toFixed(1) : 'New'}
+            label={extra.ratingCount ? `Avg Rating (${extra.ratingCount})` : 'Avg Rating'}
+            icon={Star}
+          />
           <StatItem value={extra.joined} label="Member since" icon={Calendar} />
         </div>
 
@@ -509,45 +515,9 @@ function GridPostThumb({ requirement, onClick }) {
   );
 }
 
-function RequirementDetailOverlay({ requirement, onClose, onUpdated }) {
-  return (
-    <AnimatePresence>
-      {requirement && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 flex flex-col bg-white"
-        >
-          <div className="flex shrink-0 items-center gap-3 border-b border-ink-100 px-4 py-3 sm:px-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full text-ink-600 transition-colors hover:bg-ink-100"
-              aria-label="Back to requirements"
-            >
-              <ArrowLeft size={19} aria-hidden="true" />
-            </button>
-            <p className="text-sm font-bold text-ink-900">Requirement</p>
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-            className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 py-5 sm:px-0"
-          >
-            <RequirementCard requirement={requirement} onUpdated={onUpdated} />
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 function RequirementsTab() {
+  const router = useRouter();
   const [requirements, setRequirements] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
 
   const load = () => {
@@ -562,8 +532,6 @@ function RequirementsTab() {
   }, []);
 
   useRefetchOnFocus(load);
-
-  const selected = requirements?.find((r) => r.id === selectedId) || null;
 
   if (requirements === null) {
     return (
@@ -604,12 +572,10 @@ function RequirementsTab() {
       ) : (
         <div className="grid grid-cols-3 gap-1 sm:gap-2">
           {requirements.map((r) => (
-            <GridPostThumb key={r.id} requirement={r} onClick={() => setSelectedId(r.id)} />
+            <GridPostThumb key={r.id} requirement={r} onClick={() => router.push(`/requirements/${r.id}`)} />
           ))}
         </div>
       )}
-
-      <RequirementDetailOverlay requirement={selected} onClose={() => setSelectedId(null)} onUpdated={load} />
 
       <RequirementComposerModal open={composerOpen} onClose={() => setComposerOpen(false)} onCreated={load} />
     </div>
@@ -674,6 +640,86 @@ function BookingsTab() {
   );
 }
 
+function ReviewsTab() {
+  const [reviews, setReviews] = useState(null);
+
+  const load = () => {
+    api
+      .get('/reviews/customer/me')
+      .then(({ data }) => setReviews(data.reviews || []))
+      .catch(() => setReviews([]));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useRefetchOnFocus(load);
+
+  if (reviews === null) {
+    return (
+      <div className="space-y-4">
+        <RowSkeleton />
+        <RowSkeleton />
+        <RowSkeleton />
+      </div>
+    );
+  }
+
+  if (reviews.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-ink-200 bg-ink-50/40 py-16 px-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-ink-100 bg-white text-ink-400 shadow-soft">
+          <Star size={24} className="text-ink-300" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-ink-800">No reviews yet</h3>
+          <p className="mt-1 max-w-sm text-xs text-ink-500">
+            Once a provider you&apos;ve hired completes a job and reviews you, it&apos;ll show up here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5" hover={false}>
+        <div className="flex items-center gap-2">
+          <Star size={16} className="fill-gold-500 text-gold-500" aria-hidden="true" />
+          <span className="font-display text-lg font-bold text-ink-900">{avg.toFixed(1)}</span>
+          <span className="text-xs text-ink-500">
+            from {reviews.length} provider{reviews.length === 1 ? '' : 's'} you&apos;ve worked with
+          </span>
+        </div>
+        <div className="space-y-3 border-t border-ink-100 pt-4">
+          {reviews.map((r) => (
+            <div key={r.id} className="rounded-2xl border border-ink-100 bg-ink-50/50 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-ink-800">{r.provider?.name || 'A provider'}</p>
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      size={12}
+                      className={i < r.rating ? 'fill-gold-500 text-gold-500' : 'text-ink-200'}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+              </div>
+              {r.title && <p className="mt-1.5 text-xs font-semibold text-ink-700">{r.title}</p>}
+              {r.comment && <p className="mt-1 text-xs text-ink-500">{r.comment}</p>}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function AccountTab() {
   const { user } = useAuth();
 
@@ -723,6 +769,7 @@ function AccountTab() {
 const TABS = [
   { key: 'requirements', label: 'Requirements', icon: Sparkles },
   { key: 'bookings', label: 'Post History', icon: Wallet },
+  { key: 'reviews', label: 'Reviews', icon: Star },
   { key: 'account', label: 'Account', icon: ListChecks },
 ];
 
@@ -744,6 +791,7 @@ function ProfileContent() {
   const TabContent = useMemo(() => {
     if (tab === 'requirements') return <RequirementsTab />;
     if (tab === 'bookings') return <BookingsTab />;
+    if (tab === 'reviews') return <ReviewsTab />;
     return <AccountTab />;
   }, [tab]);
 
@@ -799,7 +847,7 @@ function ProfileRouter() {
     );
   }
 
-  if (user.role === 'admin') {
+  if (user.role === 'admin' || user.role === 'staff') {
     return <AdminProfileView />;
   }
 

@@ -49,6 +49,7 @@ export default function RequirementComposerModal({
   const [locationText, setLocationText] = useState('');
   const [coords, setCoords] = useState(null);
   const [media, setMedia] = useState([]);
+  const [existingMedia, setExistingMedia] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadPhase, setUploadPhase] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -69,6 +70,7 @@ export default function RequirementComposerModal({
       setLocationText(requirement.location?.text || '');
       setCoords(requirement.location ? { lat: requirement.location.lat, lng: requirement.location.lng } : null);
       setMedia([]);
+      setExistingMedia(requirement.media || []);
     } else {
       setCategories([]);
       setServices([]);
@@ -80,6 +82,7 @@ export default function RequirementComposerModal({
       setLocationText('');
       setCoords(null);
       setMedia([]);
+      setExistingMedia([]);
 
       requestLocation();
     }
@@ -181,12 +184,20 @@ export default function RequirementComposerModal({
   if (!open) return null;
   if (typeof document === 'undefined') return null;
 
+  const totalMediaCount = existingMedia.length + media.length;
+
   const addMedia = (fileList) => {
-    const files = Array.from(fileList).slice(0, MAX_MEDIA - media.length);
-    setMedia((prev) => [...prev, ...files].slice(0, MAX_MEDIA));
+    const files = Array.from(fileList).slice(0, MAX_MEDIA - totalMediaCount);
+    setMedia((prev) => [...prev, ...files].slice(0, MAX_MEDIA - existingMedia.length));
   };
 
   const removeMedia = (idx) => setMedia((prev) => prev.filter((_, i) => i !== idx));
+  const removeExistingMedia = (idx) => setExistingMedia((prev) => prev.filter((_, i) => i !== idx));
+
+  // True only when the customer actually changed the photos/videos during an edit - lets us avoid
+  // sending media fields (and consuming upload sessions) on saves that didn't touch media at all.
+  const mediaChanged =
+    isEditMode && (media.length > 0 || existingMedia.length !== (requirement?.media?.length || 0));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -214,6 +225,19 @@ export default function RequirementComposerModal({
       setSubmitting(true);
 
       if (isEditMode) {
+        let newMediaIds = [];
+        if (media.length > 0) {
+          setUploadPhase('uploading');
+          const perFileProgress = new Array(media.length).fill(0);
+          newMediaIds = await uploadAllMedia(media, {
+            onFileProgress: (fileIndex, progress) => {
+              perFileProgress[fileIndex] = progress;
+              const overall = Math.round(perFileProgress.reduce((a, b) => a + b, 0) / media.length);
+              setUploadProgress(overall);
+            },
+          });
+        }
+
         setUploadPhase('posting');
         const payload = {
           services,
@@ -226,6 +250,10 @@ export default function RequirementComposerModal({
           lng: coords.lng,
           post_type: postType,
         };
+        if (mediaChanged) {
+          payload.existing_media = existingMedia.map((m) => ({ url: m.url, type: m.type }));
+          payload.media_ids = newMediaIds;
+        }
         const { data } = await api.put(`/requirements/${requirement.id}`, payload);
         toast('Your requirement has been updated', { type: 'success' });
         onSaved?.(data.requirement);
@@ -466,52 +494,58 @@ export default function RequirementComposerModal({
               )}
             </Field>
 
-            {isEditMode ? (
-              requirement.media?.length > 0 && (
-                <Field label="Photos / videos" hint="Media cannot be modified after initial posting">
-                  <div className="flex flex-wrap gap-2.5">
-                    {requirement.media.map((m, i) => (
-                      <div key={m.url} className="h-16 w-16 overflow-hidden rounded-2xl bg-ink-100 ring-1 ring-ink-200 shadow-soft">
-                        {m.type === 'video' ? (
-                          <video src={mediaUrl(m.url)} className="h-full w-full object-cover" muted playsInline />
-                        ) : (
-                          <img src={mediaUrl(m.url)} alt={`Media ${i + 1}`} className="h-full w-full object-cover" />
-                        )}
-                      </div>
-                    ))}
+            <Field
+              label={isEditMode ? 'Photos / videos' : 'Attach photos / videos'}
+              hint={
+                isEditMode
+                  ? `Remove old media or add new ones — up to ${MAX_MEDIA} in total`
+                  : `Up to ${MAX_MEDIA} images or videos to illustrate the work needed`
+              }
+            >
+              <div className="flex flex-wrap gap-2.5">
+                {existingMedia.map((m, i) => (
+                  <div key={`existing-${m.url}`} className="relative h-16 w-16 overflow-hidden rounded-2xl ring-1 ring-ink-200 shadow-soft">
+                    {m.type === 'video' ? (
+                      <video src={mediaUrl(m.url)} className="h-full w-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={mediaUrl(m.url)} alt={`Media ${i + 1}`} className="h-full w-full object-cover" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeExistingMedia(i)}
+                      aria-label="Remove file"
+                      className="absolute right-1 top-1 rounded-full bg-ink-950/70 p-1 text-white hover:bg-danger-600 transition-colors"
+                    >
+                      <X size={10} aria-hidden="true" />
+                    </button>
                   </div>
-                </Field>
-              )
-            ) : (
-              <Field label="Attach photos / videos" hint={`Up to ${MAX_MEDIA} images or videos to illustrate the work needed`}>
-                <div className="flex flex-wrap gap-2.5">
-                  {media.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="relative h-16 w-16 overflow-hidden rounded-2xl ring-1 ring-ink-200 shadow-soft">
-                      {file.type.startsWith('video/') ? (
-                        <video src={URL.createObjectURL(file)} className="h-full w-full object-cover" muted playsInline />
-                      ) : (
-                        <img src={URL.createObjectURL(file)} alt={`Upload ${i + 1}`} className="h-full w-full object-cover" />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeMedia(i)}
-                        aria-label="Remove file"
-                        className="absolute right-1 top-1 rounded-full bg-ink-950/70 p-1 text-white hover:bg-danger-600 transition-colors"
-                      >
-                        <X size={10} aria-hidden="true" />
-                      </button>
-                    </div>
-                  ))}
-                  {media.length < MAX_MEDIA && (
-                    <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-ink-200 hover:border-brand-400 bg-ink-50/50 hover:bg-brand-50/30 text-ink-400 hover:text-brand-600 transition-all">
-                      <Camera size={18} aria-hidden="true" />
-                      <span className="text-[10px] font-medium">Add</span>
-                      <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => addMedia(e.target.files)} />
-                    </label>
-                  )}
-                </div>
-              </Field>
-            )}
+                ))}
+                {media.map((file, i) => (
+                  <div key={`${file.name}-${i}`} className="relative h-16 w-16 overflow-hidden rounded-2xl ring-1 ring-ink-200 shadow-soft">
+                    {file.type.startsWith('video/') ? (
+                      <video src={URL.createObjectURL(file)} className="h-full w-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={URL.createObjectURL(file)} alt={`Upload ${i + 1}`} className="h-full w-full object-cover" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(i)}
+                      aria-label="Remove file"
+                      className="absolute right-1 top-1 rounded-full bg-ink-950/70 p-1 text-white hover:bg-danger-600 transition-colors"
+                    >
+                      <X size={10} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                {totalMediaCount < MAX_MEDIA && (
+                  <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-ink-200 hover:border-brand-400 bg-ink-50/50 hover:bg-brand-50/30 text-ink-400 hover:text-brand-600 transition-all">
+                    <Camera size={18} aria-hidden="true" />
+                    <span className="text-[10px] font-medium">Add</span>
+                    <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => addMedia(e.target.files)} />
+                  </label>
+                )}
+              </div>
+            </Field>
 
             {error && (
               <div className="p-3 rounded-2xl bg-danger-50 border border-danger-200 text-xs text-danger-700 font-medium">

@@ -11,6 +11,7 @@ const {
   getProviderDocumentDetail,
   getCancelledBookings,
   getCancellationAnalytics,
+  setUserRole,
 } = require('../controllers/adminController');
 const {
   getAllCategoriesAdmin,
@@ -41,15 +42,18 @@ const {
   getAnalytics: getWalletAnalytics,
 } = require('../controllers/walletController');
 const { getAllTickets, updateTicketStatus } = require('../controllers/supportController');
+const { getAuditLogs } = require('../controllers/auditLogController');
 const { protect, authorize } = require('../middleware/auth');
+const auditLog = require('../middleware/auditLog');
 
 const router = express.Router();
 
-router.use(protect, authorize('admin'));
+router.use(protect, authorize('admin', 'staff'), auditLog);
 
 router.get('/dashboard', getDashboardStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/toggle-active', toggleUserActive);
+router.patch('/users/:id/role', authorize('admin'), setUserRole);
 router.patch('/providers/:id/approve', approveProvider);
 router.get('/applications', getApplications);
 router.patch('/applications/:userId/review', reviewApplication);
@@ -94,5 +98,7 @@ router.get('/service-catalog', getServiceCatalogAdmin);
 router.post('/service-catalog', createServiceCatalog);
 router.put('/service-catalog/:id', updateServiceCatalog);
 router.delete('/service-catalog/:id', deleteServiceCatalog);
+
+router.get('/audit-logs', getAuditLogs);
 
 module.exports = router;

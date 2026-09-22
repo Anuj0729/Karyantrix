@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Star, X } from 'lucide-react';
 import ReviewForm from './ReviewForm';
 
-export default function ReviewModal({ open, onClose, requirementId, existingReview, onSaved }) {
+export default function ReviewModal({ open, onClose, requirementId, existingReview, revieweeName, revieweeRole, onSaved }) {
   useEffect(() => {
     if (!open) return undefined;
     document.body.style.overflow = 'hidden';
@@ -37,7 +37,11 @@ export default function ReviewModal({ open, onClose, requirementId, existingRevi
                 <h2 className="font-display text-lg font-bold text-ink-900 tracking-tight">
                   {existingReview ? 'Update Your Review' : 'Rate Your Experience'}
                 </h2>
-                <p className="text-xs text-ink-500">Your feedback helps the community choose trusted providers</p>
+                <p className="text-xs text-ink-500">
+                  {revieweeRole === 'customer'
+                    ? 'Your feedback helps other providers know who they are working with'
+                    : 'Your feedback helps the community choose trusted providers'}
+                </p>
               </div>
             </div>
             <button
@@ -56,6 +60,8 @@ export default function ReviewModal({ open, onClose, requirementId, existingRevi
             <ReviewForm
               requirementId={requirementId}
               existingReview={existingReview}
+              revieweeName={revieweeName}
+              revieweeRole={revieweeRole}
               onSaved={(review) => {
                 onSaved?.(review);
               }}

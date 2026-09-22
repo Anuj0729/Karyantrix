@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import AuthIllustration from './AuthIllustration';
@@ -30,7 +31,7 @@ export default function AuthShell({
           <div className="relative z-10">
             <Link href="/" className="group inline-flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-soft p-1.5">
-                <img src="/logo.png" alt="Karyantrix" className="h-full w-full object-contain" />
+                <Image src="/logo.png" alt="Karyantrix" width={40} height={40} priority className="h-full w-full object-contain" />
               </div>
               <span className="font-display text-xl font-bold tracking-tight text-white">Karyantrix</span>
             </Link>
@@ -80,7 +81,7 @@ export default function AuthShell({
           <div className="mb-6 flex items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-2.5 md:hidden">
               <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-brand-50 border border-brand-100 p-1">
-                <img src="/logo.png" alt="Karyantrix" className="h-full w-full object-contain" />
+                <Image src="/logo.png" alt="Karyantrix" width={36} height={36} className="h-full w-full object-contain" />
               </div>
               <span className="font-display text-lg font-bold text-ink-900">Karyantrix</span>
             </Link>

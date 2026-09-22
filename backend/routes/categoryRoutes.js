@@ -16,8 +16,8 @@ router.get('/', getCategories);
 router.get('/id/:id', getCategoryById);
 router.get('/:slug', getCategoryBySlug);
 
-router.post('/', protect, authorize('admin'), createCategory);
-router.put('/:id', protect, authorize('admin'), updateCategory);
-router.delete('/:id', protect, authorize('admin'), deleteCategory);
+router.post('/', protect, authorize('admin', 'staff'), createCategory);
+router.put('/:id', protect, authorize('admin', 'staff'), updateCategory);
+router.delete('/:id', protect, authorize('admin', 'staff'), deleteCategory);
 
 module.exports = router;

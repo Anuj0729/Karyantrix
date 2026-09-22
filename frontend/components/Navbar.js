@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -54,9 +55,12 @@ export default function Navbar() {
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-brand-600 via-brand-700 to-accent-500 shadow-glow-brand"
           >
-            <img
+            <Image
               src="/logo.png"
               alt="Karyantrix Logo"
+              width={40}
+              height={40}
+              priority
               className="h-full w-full object-cover p-1"
             />
           </motion.div>
@@ -123,7 +127,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {user.role === 'admin' && (
+              {(user.role === 'admin' || user.role === 'staff') && (
                 <Link
                   href="/admin"
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
@@ -283,7 +287,7 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                   )}
-                  {user.role === 'admin' && (
+                  {(user.role === 'admin' || user.role === 'staff') && (
                     <Link
                       href="/admin"
                       onClick={() => setMobileOpen(false)}

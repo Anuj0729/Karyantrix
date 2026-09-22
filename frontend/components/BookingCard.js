@@ -33,12 +33,12 @@ export default function BookingCard({ booking, onUpdated }) {
   const requirementId = booking.requirement?.id;
 
   useEffect(() => {
-    if (!isCustomer || booking.status !== 'completed' || !requirementId) return;
+    if (!['completed', 'cancelled'].includes(booking.status) || !requirementId) return;
     api
       .get(`/reviews/mine/${requirementId}`)
       .then(({ data }) => setMyReview(data.review))
       .catch(() => setMyReview(null));
-  }, [isCustomer, booking.status, requirementId]);
+  }, [booking.status, requirementId]);
 
   const payLeg = async (leg) => {
     setBusy(true);
@@ -101,6 +101,8 @@ export default function BookingCard({ booking, onUpdated }) {
   const isBalancePaid = booking.balance?.status === 'paid';
   const progressPercent = isBalancePaid ? 100 : isAdvancePaid ? 50 : 10;
   const isCancellable = ['awaiting_advance', 'in_progress'].includes(booking.status);
+  const iCancelled = booking.cancellation?.cancelled_by_role === user?.role;
+  const canReviewCancellation = booking.status === 'cancelled' && !iCancelled;
 
   return (
     <Card className="p-5 sm:p-6 rounded-3xl border border-ink-200/80 bg-white shadow-soft hover:shadow-card-hover transition-all duration-300" hover={false}>
@@ -185,7 +187,7 @@ export default function BookingCard({ booking, onUpdated }) {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-red-800">
-                  Cancelled by {booking.cancellation?.cancelled_by_role === user?.role ? 'you' : booking.cancellation?.cancelled_by_role}
+                  Cancelled by {iCancelled ? 'you' : booking.cancellation?.cancelled_by_role}
                 </p>
                 <p className="mt-0.5 text-[11px] text-red-700 leading-relaxed">
                   {CANCELLATION_REASON_LABELS[booking.cancellation?.reason] || booking.cancellation?.reason}
@@ -211,6 +213,17 @@ export default function BookingCard({ booking, onUpdated }) {
                   </div>
                 )}
               </div>
+            )}
+            {canReviewCancellation && (
+              <Button
+                size="sm"
+                variant="secondary"
+                fullWidth
+                onClick={() => setReviewOpen(true)}
+                icon={<Star size={14} className="text-gold-500 fill-gold-500" aria-hidden="true" />}
+              >
+                {myReview ? 'Update your review' : `Rate & review the ${isCustomer ? 'provider' : 'customer'} who cancelled`}
+              </Button>
             )}
           </div>
         )}
@@ -274,9 +287,20 @@ export default function BookingCard({ booking, onUpdated }) {
           </div>
         )}
         {!isCustomer && booking.status === 'completed' && (
-          <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-trust-50 text-xs font-bold text-trust-800 border border-trust-100">
-            <CheckCircle2 size={15} className="text-trust-600" />
-            <span>Paid in full &mdash; job successfully closed and payment received.</span>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-trust-50 text-xs font-bold text-trust-800 border border-trust-100">
+              <CheckCircle2 size={15} className="text-trust-600" />
+              <span>Paid in full &mdash; job successfully closed and payment received.</span>
+            </div>
+            <Button
+              size="md"
+              variant="secondary"
+              fullWidth
+              onClick={() => setReviewOpen(true)}
+              icon={<Star size={15} className="text-gold-500 fill-gold-500" aria-hidden="true" />}
+            >
+              {myReview ? 'Update your review' : 'Rate & review this customer'}
+            </Button>
           </div>
         )}
 
@@ -312,12 +336,14 @@ export default function BookingCard({ booking, onUpdated }) {
         }}
       />
 
-      {isCustomer && requirementId && (
+      {requirementId && (
         <ReviewModal
           open={reviewOpen}
           onClose={() => setReviewOpen(false)}
           requirementId={requirementId}
           existingReview={myReview}
+          revieweeName={otherParty?.name}
+          revieweeRole={isCustomer ? 'provider' : 'customer'}
           onSaved={(review) => {
             setMyReview(review);
             setReviewOpen(false);

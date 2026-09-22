@@ -8,8 +8,10 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, default: null, sparse: true, trim: true, maxlength: 20 },
     password_hash: { type: String, required: true, select: false },
     google_id: { type: String, default: null },
-    role: { type: String, enum: ['customer', 'provider', 'admin'], default: 'customer' },
+    
+    role: { type: String, enum: ['customer', 'provider', 'admin', 'staff'], default: 'customer' },
     avatar_url: { type: String, default: null },
+    cover_photo_url: { type: String, default: null },
     is_verified: { type: Boolean, default: false },
     is_active: { type: Boolean, default: true },
     bio: { type: String, default: null, maxlength: 500 },
@@ -17,6 +19,10 @@ const userSchema = new mongoose.Schema(
     account_status: { type: String, enum: ['active', 'suspended', 'banned'], default: 'active' },
     tokenVersion: { type: Number, default: 0 },
     requirement_radius_km: { type: Number, default: 5, min: 1, max: 200 },
+    
+    customer_rating_avg: { type: Number, default: 0 },
+    customer_rating_count: { type: Number, default: 0 },
+    customer_jobs_completed: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

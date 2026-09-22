@@ -73,6 +73,10 @@ function ProviderCard({ provider, view = "grid" }) {
             src={avatarUrl}
             alt={`${providerName} profile`}
             className="h-14 w-14 rounded-2xl object-cover ring-2 ring-ink-100 shadow-xs transition-transform duration-200 group-hover:scale-[1.02]"
+            width={56}
+            height={56}
+            loading="lazy"
+            decoding="async"
           />
           
           <span

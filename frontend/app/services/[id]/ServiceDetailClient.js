@@ -148,6 +148,10 @@ export default function ServiceDetailClient({ initialService = null }) {
                   src={resolveMediaUrl(service.provider?.avatar_url) || 'https://i.pravatar.cc/300?img=15'}
                   alt={service.provider?.name}
                   className="h-12 w-12 rounded-2xl object-cover ring-2 ring-white shadow-xs"
+                  width={48}
+                  height={48}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">

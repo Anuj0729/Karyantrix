@@ -279,7 +279,7 @@ export default function ChatThread({ conversationId, backHref }) {
 
         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ink-100 ring-2 ring-brand-100 shadow-xs">
           {otherAvatar ? (
-            <img src={otherAvatar} alt={conversation?.other_participant?.name} className="h-full w-full object-cover" />
+            <img src={otherAvatar} alt={conversation?.other_participant?.name} className="h-full w-full object-cover" decoding="async" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-brand-50 text-brand-700 font-bold text-xs">
               {conversation?.other_participant?.name ? conversation.other_participant.name.slice(0, 2).toUpperCase() : <UserRound size={18} />}
