@@ -38,7 +38,7 @@ function fmtDate(d) {
 function TicketRow({ ticket }) {
   return (
     <Link href={`/admin/support/${ticket.id}`} className="group block">
-      <Card className="flex items-center justify-between gap-4 p-4.5 border-ink-200/80 shadow-xs transition-all hover:border-brand-300 hover:shadow-card group-hover:-translate-y-0.5" hover={false}>
+      <Card className="flex items-center justify-between gap-4 p-5 border-ink-200/80 shadow-xs transition-all hover:border-brand-300 hover:shadow-card group-hover:-translate-y-0.5" hover={false}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-bold text-ink-900 group-hover:text-brand-600 transition-colors">
