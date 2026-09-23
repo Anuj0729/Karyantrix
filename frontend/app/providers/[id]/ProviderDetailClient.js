@@ -10,8 +10,6 @@ import {
   Briefcase,
   Calendar,
   CalendarPlus,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Flag,
   MapPin,
@@ -21,7 +19,6 @@ import {
   Star,
   UserX,
   Wrench,
-  X,
 } from 'lucide-react';
 import api from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
@@ -31,7 +28,7 @@ import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
 import { Skeleton } from '../../../components/ui/Skeleton';
-import Portal from '../../../components/ui/Portal';
+import PortfolioCard from '../../../components/PortfolioCard';
 import dynamic from 'next/dynamic';
 import { resolveMediaUrl } from '../../../components/chat/mediaUrl';
 import { priceTypeShortLabel } from '../../../lib/priceType';
@@ -56,105 +53,6 @@ function Stat({ icon: Icon, label, value, sublabel }) {
         {sublabel && <p className="text-[10px] font-medium text-ink-400">{sublabel}</p>}
       </div>
     </div>
-  );
-}
-
-function PortfolioLightbox({ items, index, onNavigate, onClose }) {
-  const item = index !== null ? items[index] : null;
-
-  return (
-    <Portal>
-      <AnimatePresence>
-        {item && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-[60] bg-black"
-            onClick={onClose}
-          >
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.18 }}
-              className="flex h-full w-full flex-col items-center justify-center gap-4 p-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={resolveMediaUrl(item.image_url)}
-                alt={item.title || 'Portfolio item'}
-                className="max-h-[75vh] w-auto max-w-full rounded-xl object-contain"
-                loading="lazy"
-                decoding="async"
-              />
-              {(item.title || item.description) && (
-                <div className="max-w-lg text-center">
-                  {item.title && <p className="text-sm font-bold text-white">{item.title}</p>}
-                  {item.description && <p className="mt-1 text-xs text-white/70">{item.description}</p>}
-                </div>
-              )}
-            </motion.div>
-
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent px-4 py-4 sm:px-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {items.length > 1 ? (
-                <span className="pointer-events-auto rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                  {index + 1} / {items.length}
-                </span>
-              ) : (
-                <span />
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose();
-                }}
-                className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-                aria-label="Close"
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-            </div>
-
-            {items.length > 1 && (
-              <>
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate(index - 1);
-                    }}
-                    className="absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:left-6"
-                    aria-label="Previous"
-                  >
-                    <ChevronLeft size={22} aria-hidden="true" />
-                  </button>
-                )}
-                {index < items.length - 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate(index + 1);
-                    }}
-                    className="absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:right-6"
-                    aria-label="Next"
-                  >
-                    <ChevronRight size={22} aria-hidden="true" />
-                  </button>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Portal>
   );
 }
 
@@ -195,7 +93,6 @@ export default function ProviderDetailClient({ initialProvider = null, initialRe
   const [contacting, setContacting] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
-  const [portfolioIndex, setPortfolioIndex] = useState(null);
 
   useEffect(() => {
     if (initialProvider) {
@@ -589,28 +486,14 @@ export default function ProviderDetailClient({ initialProvider = null, initialRe
             )}
 
             {tab === 'portfolio' && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {(!p.portfolio || p.portfolio.length === 0) ? (
                   <div className="col-span-full rounded-2xl border border-dashed border-ink-200 p-8 text-center text-xs text-ink-400">
                     No portfolio projects uploaded yet.
                   </div>
                 ) : (
                   p.portfolio.map((item, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPortfolioIndex(i)}
-                      className="group relative overflow-hidden rounded-2xl border border-ink-100 shadow-soft text-left"
-                    >
-                      <img
-                        src={resolveMediaUrl(item.image_url)}
-                        alt={item.title}
-                        className="h-36 w-full object-cover transition duration-300 group-hover:scale-105 sm:h-44"
-                      />
-                      <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-transparent to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
-                        <p className="text-xs font-semibold text-white">{item.title}</p>
-                      </div>
-                    </button>
+                    <PortfolioCard key={item.id || item._id || i} item={item} providerId={provider.id} />
                   ))
                 )}
               </div>
@@ -665,13 +548,6 @@ export default function ProviderDetailClient({ initialProvider = null, initialRe
           </div>
         </div>
       </div>
-
-      <PortfolioLightbox
-        items={p.portfolio || []}
-        index={portfolioIndex}
-        onNavigate={setPortfolioIndex}
-        onClose={() => setPortfolioIndex(null)}
-      />
     </div>
   );
 }

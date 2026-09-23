@@ -37,6 +37,7 @@ import { Field, TextInput } from '../ui/Field';
 import { useToast } from '../ui/Toast';
 import Avatar from './Avatar';
 import StarRating from './StarRating';
+import PortfolioCard from '../PortfolioCard';
 const AddCertificationModal = dynamic(() => import('./AddCertificationModal'));
 const AddPortfolioModal = dynamic(() => import('./AddPortfolioModal'));
 const SwitchToCustomerModal = dynamic(() => import('./SwitchToCustomerModal'));
@@ -624,21 +625,9 @@ export default function MyProviderProfileView({ profile, services, reviews, onEd
         {portfolio.length === 0 ? (
           <p className="p-4 text-sm italic text-ink-400">No portfolio work added yet.</p>
         ) : (
-          <div className="grid grid-cols-3 gap-2 p-4 sm:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {portfolio.map((item, i) => (
-              <div key={i} title={item.title} className="group relative aspect-square overflow-hidden rounded-lg bg-ink-50">
-                {item.image_url ? (
-                  <img
-                    src={avatarUrl(item.image_url)}
-                    alt={item.title || 'Portfolio work'}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <ImageIcon className="h-4 w-4 text-ink-400" />
-                  </div>
-                )}
-              </div>
+              <PortfolioCard key={item.id || item._id || i} item={item} providerId={user?.id} />
             ))}
           </div>
         )}
