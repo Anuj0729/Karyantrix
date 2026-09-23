@@ -26,6 +26,6 @@ router.get('/application/me', protect, getMyApplication);
 router.put('/application/me', protect, saveApplicationStep);
 router.post('/application/submit', protect, submitApplication);
 
-router.get('/:id', getProviderProfile);
+router.get('/:id', optionalAuth, getProviderProfile);
 
 module.exports = router;

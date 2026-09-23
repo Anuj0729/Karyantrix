@@ -295,7 +295,9 @@ function AdminUsersContent() {
                         <button
                           type="button"
                           onClick={() => handleStatusToggle(u)}
-                          className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                          disabled={u.role === 'admin' && !isRealAdmin}
+                          title={u.role === 'admin' && !isRealAdmin ? 'Only an admin can activate or deactivate an admin account' : undefined}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                             u.is_active
                               ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                               : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'

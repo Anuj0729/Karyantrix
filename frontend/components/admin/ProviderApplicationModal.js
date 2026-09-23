@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   X, Briefcase, Clock, Languages, Award, Image as ImageIcon,
-  IdCard, ShieldCheck, CircleCheck, CircleX, TriangleAlert,
+  IdCard, ShieldCheck, CircleCheck, CircleX, TriangleAlert, ExternalLink,
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -106,7 +106,19 @@ export default function ProviderApplicationModal({ application, isOpen, onClose,
                 <p className="text-xs text-ink-500">{user.email}{user.phone ? ` · ${user.phone}` : ''}</p>
               </div>
             </div>
-            <StatusBadge status={profile.application_status} kind="application" />
+            <div className="flex items-center gap-2">
+              {(profile.user?.id || profile.user) && (
+                <a
+                  href={`/providers/${profile.user?.id || profile.user}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl border border-ink-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-ink-600 transition hover:border-brand-300 hover:text-brand-600"
+                >
+                  View public profile <ExternalLink size={13} aria-hidden="true" />
+                </a>
+              )}
+              <StatusBadge status={profile.application_status} kind="application" />
+            </div>
           </div>
 
           {profile.application_feedback && (

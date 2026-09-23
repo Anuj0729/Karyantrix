@@ -3,7 +3,7 @@ const { emitToUser } = require('../sockets/socketHandler');
 const { resolveViewerRadiusKm, parseViewerCoords, serializeGeoDoc } = require('../utils/geo');
 const { issueAuthTokens } = require('../utils/authCookies');
 const { hasApprovedProviderProfile, canSwitchToProvider } = require('../utils/userPayload');
-const { ADMIN_ROLES } = require('../utils/roles');
+const { ADMIN_ROLES, isAdminRole } = require('../utils/roles');
 
 const ACTIVE_BOOKING_STATUSES = ['awaiting_advance', 'in_progress', 'work_completed'];
 
@@ -419,8 +419,25 @@ const getProviders = async (req, res, next) => {
 
 const getProviderProfile = async (req, res, next) => {
   try {
-    const provider = await User.findOne({ _id: req.params.id, role: 'provider' }).select('id name avatar_url location createdAt');
+    // A user who has applied to become a provider still has role "customer"
+    // until an admin approves the application, so we cannot filter on
+    // role: 'provider' here or applicants (and admins reviewing them)
+    // would never be able to open the profile. Instead, load the user by
+    // id and decide visibility based on their provider profile status.
+    const provider = await User.findById(req.params.id).select('id name avatar_url location createdAt role');
     if (!provider) return res.status(404).json({ message: 'Provider not found' });
+
+    const isLiveProvider = provider.role === 'provider';
+    const isViewingAdmin = Boolean(req.user) && ADMIN_ROLES.includes(req.user.role);
+    const isViewingSelf = Boolean(req.user) && String(req.user.id) === String(provider.id);
+
+    // Non-provider accounts (e.g. pending provider applicants) only get
+    // their profile shown to admins reviewing the application, or to
+    // themselves — everyone else gets the normal "not found" response so
+    // unapproved applicants aren't exposed publicly.
+    if (!isLiveProvider && !isViewingAdmin && !isViewingSelf) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
 
     const [profile, services] = await Promise.all([
       ProviderProfile.findOne({ user: provider.id }).populate('categories', 'id name slug'),

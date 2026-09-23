@@ -21,6 +21,6 @@ router.post('/', protect, authorizeProviderOrApplicant, createService);
 router.put('/:id', protect, authorizeProviderOrApplicant, updateService);
 router.delete('/:id', protect, authorizeProviderOrApplicant, deleteService);
 
-router.get('/:id', getServiceById);
+router.get('/:id', optionalAuth, getServiceById);
 
 module.exports = router;

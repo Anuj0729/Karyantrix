@@ -178,6 +178,14 @@ const toggleUserActive = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // A staff account has admin-panel access but must not be able to
+    // deactivate (or reactivate) an admin account — only a real admin can
+    // do that to another admin.
+    if (user.role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only an admin can activate or deactivate an admin account' });
+    }
+
     user.is_active = !user.is_active;
     await user.save();
     res.json({ message: `User ${user.is_active ? 'activated' : 'deactivated'}`, user });

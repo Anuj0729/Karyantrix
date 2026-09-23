@@ -1,5 +1,6 @@
 const { Service, Category, ServiceCatalog } = require('../models');
 const { resolveViewerRadiusKm, parseViewerCoords } = require('../utils/geo');
+const { ADMIN_ROLES } = require('../utils/roles');
 
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 24;
@@ -30,11 +31,24 @@ const getServices = async (req, res, next) => {
     }
 
     const { ProviderProfile } = require('../models');
+
+    // Only services belonging to an approved provider should ever be
+    // publicly browsable. A customer mid-way through their provider
+    // application can already create one service listing, but that
+    // listing must stay hidden from "Browse services" until an admin
+    // approves their profile — otherwise unapproved applicants effectively
+    // get a public storefront before review.
+    const approvedProviderIds = (
+      await ProviderProfile.find({ is_approved: true }).select('user').lean()
+    ).map((p) => p.user);
+    where.provider = { $in: approvedProviderIds };
+
     let radiusKm = null;
     const viewerCoords = parseViewerCoords(req.query);
     if (viewerCoords) {
       radiusKm = resolveViewerRadiusKm(radius, req.user);
       const nearbyProfiles = await ProviderProfile.find({
+        is_approved: true,
         'location.geo': {
           $near: {
             $geometry: { type: 'Point', coordinates: [viewerCoords.lng, viewerCoords.lat] },
@@ -92,9 +106,21 @@ const getServiceById = async (req, res, next) => {
       .populate({ path: 'provider', select: 'id name phone avatar_url' });
     if (!service) return res.status(404).json({ message: 'Service not found' });
 
+    const providerProfile = await ProviderProfile.findOne({ user: service.provider?.id });
+
+    // Same rule as the browse-services list: a service whose provider is
+    // not yet approved should not be viewable by the public. The provider
+    // themself (still previewing their own listing) and admins reviewing
+    // the application are the only exceptions.
+    const isViewingAdmin = Boolean(req.user) && ADMIN_ROLES.includes(req.user.role);
+    const isViewingOwner = Boolean(req.user) && String(req.user.id) === String(service.provider?.id);
+    if (!providerProfile?.is_approved && !isViewingAdmin && !isViewingOwner) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
+
     const obj = service.toJSON();
     if (obj.provider) {
-      obj.provider.providerProfile = await ProviderProfile.findOne({ user: obj.provider.id });
+      obj.provider.providerProfile = providerProfile;
     }
     res.json({ service: obj });
   } catch (error) {
