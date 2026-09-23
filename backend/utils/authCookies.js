@@ -17,18 +17,23 @@ const baseCookieOptions = () => {
   };
 };
 
-const setRefreshCookie = (res, token) => {
-  res.cookie(REFRESH_COOKIE_NAME, token, { ...baseCookieOptions(), maxAge: getRefreshMaxAgeMs() });
+// remember = true  -> persistent cookie with maxAge, survives browser close
+// remember = false -> browser-session cookie (no maxAge), deleted when the browser closes
+const setRefreshCookie = (res, token, remember = true) => {
+  const options = remember
+    ? { ...baseCookieOptions(), maxAge: getRefreshMaxAgeMs() }
+    : baseCookieOptions();
+  res.cookie(REFRESH_COOKIE_NAME, token, options);
 };
 
 const clearRefreshCookie = (res) => {
   res.clearCookie(REFRESH_COOKIE_NAME, baseCookieOptions());
 };
 
-const issueAuthTokens = (res, user) => {
+const issueAuthTokens = (res, user, remember = true) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, remember);
   return { accessToken };
 };
 

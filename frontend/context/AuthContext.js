@@ -40,8 +40,12 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("karyantrix_token");
-    const savedUser = localStorage.getItem("karyantrix_user");
+    const token =
+      localStorage.getItem("karyantrix_token") ||
+      sessionStorage.getItem("karyantrix_token");
+    const savedUser =
+      localStorage.getItem("karyantrix_user") ||
+      sessionStorage.getItem("karyantrix_user");
 
     if (token && savedUser) {
       setAccessToken(token, true);
@@ -55,8 +59,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const onSessionExpired = () => {
-      const hadSession = !!localStorage.getItem("karyantrix_user");
+      const hadSession =
+        !!localStorage.getItem("karyantrix_user") ||
+        !!sessionStorage.getItem("karyantrix_user");
       localStorage.removeItem("karyantrix_user");
+      sessionStorage.removeItem("karyantrix_user");
       disconnectSocket();
       notificationHandlerRef.current = null;
       setUser(null);
@@ -80,9 +87,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const persistSession = (token, userData) => {
-    setAccessToken(token, true);
-    localStorage.setItem("karyantrix_user", JSON.stringify(userData));
+  const persistSession = (token, userData, remember = true) => {
+    setAccessToken(token, remember);
+    if (remember) {
+      localStorage.setItem("karyantrix_user", JSON.stringify(userData));
+      sessionStorage.removeItem("karyantrix_user");
+    } else {
+      sessionStorage.setItem("karyantrix_user", JSON.stringify(userData));
+      localStorage.removeItem("karyantrix_user");
+    }
     setUser(userData);
     hydrateNotifications();
 
@@ -115,9 +128,13 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const loginWithPassword = async (identifier, password) => {
-    const { data } = await api.post("/auth/login", { identifier, password });
-    persistSession(data.accessToken || data.token, data.user);
+  const loginWithPassword = async (identifier, password, remember = false) => {
+    const { data } = await api.post("/auth/login", {
+      identifier,
+      password,
+      remember,
+    });
+    persistSession(data.accessToken || data.token, data.user, remember);
     return data.user;
   };
 
@@ -203,6 +220,7 @@ export function AuthProvider({ children }) {
     } catch (err) {}
     clearAccessToken();
     localStorage.removeItem("karyantrix_user");
+    sessionStorage.removeItem("karyantrix_user");
     disconnectSocket();
     notificationHandlerRef.current = null;
     setUser(null);

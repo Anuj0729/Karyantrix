@@ -92,7 +92,7 @@ function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      const user = await loginWithPassword(identifier, password);
+      const user = await loginWithPassword(identifier, password, remember);
       setFailedAttempts(0);
       await goToDashboard(user);
     } catch (err) {

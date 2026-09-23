@@ -137,7 +137,7 @@ const verifyRegister = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const parsed = parseIdentifier(req.body.identifier);
-    const { password } = req.body;
+    const { password, remember } = req.body;
     if (!parsed || !password) {
       return res.status(400).json({ message: 'Email/phone and password are required' });
     }
@@ -157,7 +157,7 @@ const login = async (req, res, next) => {
       return res.status(403).json({ message: 'This account has been deactivated' });
     }
 
-    const { accessToken } = issueAuthTokens(res, foundUser);
+    const { accessToken } = issueAuthTokens(res, foundUser, Boolean(remember));
     res.json({ message: 'Logged in successfully', accessToken, user: await publicUser(foundUser) });
   } catch (error) {
     next(error);

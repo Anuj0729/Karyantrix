@@ -13,7 +13,10 @@ const api = axios.create({
   withCredentials: true,
 });
 
-let accessToken = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+let accessToken =
+  typeof window !== 'undefined'
+    ? localStorage.getItem(ACCESS_TOKEN_KEY) || sessionStorage.getItem(ACCESS_TOKEN_KEY)
+    : null;
 
 if (typeof window !== 'undefined') {
   localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
@@ -21,8 +24,14 @@ if (typeof window !== 'undefined') {
 
 export const setAccessToken = (token, persist = false) => {
   accessToken = token;
-  if (persist && typeof window !== 'undefined') {
+  if (typeof window === 'undefined') return;
+
+  if (persist) {
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  } else {
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
   }
 };
 
@@ -30,6 +39,7 @@ export const clearAccessToken = () => {
   accessToken = null;
   if (typeof window !== 'undefined') {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   }
 };
 
