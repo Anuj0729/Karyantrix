@@ -69,7 +69,8 @@ function NotificationsContent() {
   const handleNotificationClick = (n) => {
     const id = n.id || n._id;
     if (!n.is_read) markOneRead(id);
-    if (n.related_requirement) router.push(`/requirements/${n.related_requirement}`);
+    if (n.related_booking) router.push(`/bookings?open=${n.related_booking}`);
+    else if (n.related_requirement) router.push(`/requirements/${n.related_requirement}`);
   };
 
   const markAllRead = async () => {

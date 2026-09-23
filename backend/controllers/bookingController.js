@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { Booking, Notification, WalletTransaction, PlatformSetting } = require('../models');
+const { Booking, Notification, WalletTransaction, PlatformSetting, Requirement } = require('../models');
 const { getRazorpay } = require('../config/razorpay');
 const { toPaise } = require('../utils/payments');
 const { emitToUser } = require('../sockets/socketHandler');
@@ -30,6 +30,13 @@ const notify = async (userId, title, message, extra = {}) => {
   const notification = await Notification.create({ user: userId, title, message, type: 'booking', ...extra });
   emitToUser(userId, 'notification', notification);
   return notification;
+};
+
+// So every booking notification can say *which* requirement it's about, even though the
+// booking document itself only stores the requirement's id.
+const requirementLabel = async (requirementId) => {
+  const requirement = await Requirement.findById(requirementId).select('services');
+  return requirement?.services?.length ? requirement.services.join(', ') : 'your requirement';
 };
 
 const populateBooking = (query) =>
@@ -147,8 +154,8 @@ const verifyAdvancePayment = async (req, res, next) => {
     await notify(
       booking.provider,
       'Advance payment received',
-      `The customer paid the \u20b9${booking.advance_amount} advance. You can start the work now.`,
-      { related_requirement: booking.requirement }
+      `${req.user.name} paid the \u20b9${booking.advance_amount} advance for "${await requirementLabel(booking.requirement)}". You can start the work now.`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.provider, 'booking_updated', { booking_id: booking.id, status: booking.status });
     emitToUser(booking.customer, 'booking_updated', { booking_id: booking.id, status: booking.status });
@@ -197,14 +204,15 @@ const addProgressUpdate = async (req, res, next) => {
     await booking.save();
 
     const update = booking.progress_updates[booking.progress_updates.length - 1];
+    const progressLabel = await requirementLabel(booking.requirement);
 
     await notify(
       booking.customer,
       update.is_final ? 'Provider says the job is complete' : "Today's progress update",
       update.is_final
-        ? 'Your provider has shared photos/videos and marked the job as fully done. Please review and approve.'
-        : 'Your provider shared photos/videos of the work done today. Take a look.',
-      { related_requirement: booking.requirement }
+        ? `${req.user.name} shared photos/videos for "${progressLabel}" and marked the job as fully done. Please review and approve.`
+        : `${req.user.name} shared photos/videos of today's work on "${progressLabel}". Take a look.`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.customer, 'booking_progress_update', { booking_id: booking.id, update });
 
@@ -241,15 +249,16 @@ const respondToProgressUpdate = async (req, res, next) => {
     update.responded_at = new Date();
     await booking.save();
 
+    const respondLabel = await requirementLabel(booking.requirement);
     await notify(
       booking.provider,
       action === 'approve' ? 'Progress update approved' : 'Customer requested changes',
       action === 'approve'
         ? update.is_final
-          ? 'The customer approved the final update. You can now mark the job as fully completed.'
-          : 'The customer approved your progress update. Keep going.'
-        : `The customer asked for changes: ${update.customer_feedback}`,
-      { related_requirement: booking.requirement }
+          ? `${req.user.name} approved the final update for "${respondLabel}". You can now mark the job as fully completed.`
+          : `${req.user.name} approved your progress update for "${respondLabel}". Keep going.`
+        : `${req.user.name} asked for changes on "${respondLabel}": ${update.customer_feedback}`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.provider, 'booking_progress_update', { booking_id: booking.id, update });
 
@@ -294,8 +303,8 @@ const markWorkCompleted = async (req, res, next) => {
     await notify(
       booking.customer,
       'Work marked as completed',
-      `Your provider marked the job as done. Please pay the remaining \u20b9${booking.balance_amount} to close it out.`,
-      { related_requirement: booking.requirement }
+      `${req.user.name} marked the job "${await requirementLabel(booking.requirement)}" as done. Please pay the remaining \u20b9${booking.balance_amount} to close it out.`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.customer, 'booking_updated', { booking_id: booking.id, status: booking.status });
     emitToUser(booking.provider, 'booking_updated', { booking_id: booking.id, status: booking.status });
@@ -392,8 +401,8 @@ const verifyBalancePayment = async (req, res, next) => {
     await notify(
       booking.provider,
       'Final payment received',
-      `The customer paid the remaining \u20b9${booking.balance_amount}. This booking is fully paid. Your payout of \u20b9${payableAmount} (after ${settings.commission_percent}% platform commission) will be sent within ${payoutSlaDays} business day${payoutSlaDays === 1 ? '' : 's'}, by ${expectedPayoutDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`,
-      { related_requirement: booking.requirement }
+      `${req.user.name} paid the remaining \u20b9${booking.balance_amount} for "${await requirementLabel(booking.requirement)}". This booking is fully paid. Your payout of \u20b9${payableAmount} (after ${settings.commission_percent}% platform commission) will be sent within ${payoutSlaDays} business day${payoutSlaDays === 1 ? '' : 's'}, by ${expectedPayoutDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.provider, 'booking_updated', { booking_id: booking.id, status: booking.status });
     emitToUser(booking.customer, 'booking_updated', { booking_id: booking.id, status: booking.status });
@@ -496,8 +505,8 @@ const cancelBooking = async (req, res, next) => {
     await notify(
       otherPartyId,
       'Booking cancelled',
-      `The ${role} cancelled this booking. Reason: ${details.trim()}.${feeNote}${refundNote}`,
-      { related_requirement: booking.requirement }
+      `${req.user.name} (${role}) cancelled the "${await requirementLabel(booking.requirement)}" booking. Reason: ${details.trim()}.${feeNote}${refundNote}`,
+      { related_requirement: booking.requirement, related_booking: booking.id }
     );
     emitToUser(booking.provider, 'booking_updated', { booking_id: booking.id, status: booking.status });
     emitToUser(booking.customer, 'booking_updated', { booking_id: booking.id, status: booking.status });

@@ -585,6 +585,7 @@ const firstNumber = (...vals) => vals.find((v) => typeof v === 'number' && !Numb
 function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
   const { toast } = useToast();
   const { openChatWithProvider } = useChat();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [hiring, setHiring] = useState(false);
@@ -618,10 +619,10 @@ function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
   const handleHire = async () => {
     try {
       setHiring(true);
-      await api.post(hireBidUrl(requirement.id, bid.id), {});
+      const { data } = await api.post(hireBidUrl(requirement.id, bid.id), {});
       toast(`${provider.name || 'Provider'} has been hired`, { type: 'success' });
       setConfirming(false);
-      onHired();
+      onHired(data?.booking?.id);
     } catch (err) {
       toast(err.response?.data?.message || 'Could not hire this provider', { type: 'error' });
     } finally {
@@ -644,9 +645,32 @@ function ProposalItem({ bid, requirement, isOwner, canHire, onHired }) {
     }
   };
 
+  // The whole proposal is clickable through to the provider's profile for the customer -
+  // but not when the click landed on a button/link inside it (Contact, Hire, Confirm, etc.),
+  // since those have their own actions.
+  const canOpenProfile = isOwner && !!provider.id;
+  const handleCardClick = (e) => {
+    if (!canOpenProfile) return;
+    if (e.target.closest('button, a')) return;
+    router.push(`/providers/${provider.id}`);
+  };
+  const handleCardKeyDown = (e) => {
+    if (!canOpenProfile) return;
+    if (e.target.closest('button, a')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      router.push(`/providers/${provider.id}`);
+    }
+  };
+
   return (
     <div
-      className={`rounded-3xl border bg-white p-5 shadow-soft sm:p-6 ${
+      role={canOpenProfile ? 'link' : undefined}
+      tabIndex={canOpenProfile ? 0 : undefined}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      aria-label={canOpenProfile ? `View ${provider.name || 'provider'}'s profile` : undefined}
+      className={`rounded-3xl border bg-white p-5 shadow-soft sm:p-6 ${canOpenProfile ? 'cursor-pointer transition-shadow hover:shadow-card-hover' : ''} ${
         accepted ? 'border-trust-500/60 ring-1 ring-trust-500/20' : bid.is_mine ? 'border-brand-300 ring-1 ring-brand-200/60' : 'border-brand-200/70'
       }`}
     >
@@ -950,12 +974,12 @@ function InterestedProviderItem({ entry, requirement, isOwner, isHired, canHire,
   const handleHire = async () => {
     try {
       setHiring(true);
-      await api.patch(`/requirements/${requirement.id}/interested/${provider.id}/hire`);
+      const { data } = await api.patch(`/requirements/${requirement.id}/interested/${provider.id}/hire`);
       toast(`${provider.name || 'Provider'} has been hired — pay the advance from Bookings to confirm`, {
         type: 'success',
       });
       setConfirming(false);
-      onHired();
+      onHired(data?.booking?.id);
     } catch (err) {
       toast(err.response?.data?.message || 'Could not hire this provider', { type: 'error' });
     } finally {
@@ -1198,9 +1222,12 @@ function RequirementDetailView({ requirement, isOwner, isProvider, onRequirement
     }
   };
 
-  const handleHired = () => {
+  const handleHired = (bookingId) => {
     reloadBids();
     onRequirementUpdated({ status: 'assigned' });
+    // Hiring creates a booking the customer now needs to act on (pay the advance) -
+    // send them straight to it instead of leaving them on the now-closed requirement.
+    router.push(bookingId ? `/bookings?open=${bookingId}` : '/bookings');
   };
 
   return (

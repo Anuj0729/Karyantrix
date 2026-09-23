@@ -20,6 +20,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-color: #0F172A;
+  color: #F8FAFC;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
@@ -166,4 +172,110 @@ body ::placeholder {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ==========================================================================
+   Dark mode
+   --------------------------------------------------------------------------
+   The whole UI is built on Tailwind's "ink" scale (the project's stand-in
+   for gray) plus bg-white for cards. Rather than hand-editing dark: variants
+   into every one of the ~90 components that use those classes, this block
+   remaps the ink/white utility classes themselves whenever the <html> tag
+   carries a "dark" class (toggled by ThemeContext / ThemeToggle). Colorful
+   brand/accent/trust/gold classes are left untouched — they already read
+   fine on a dark background.
+   ========================================================================== */
+
+html.dark { color-scheme: dark; }
+
+/* Solid backgrounds */
+html.dark .bg-white { background-color: #1E293B; }
+html.dark .bg-ink-50 { background-color: #0F172A; }
+html.dark .bg-ink-100 { background-color: #1E293B; }
+html.dark .bg-ink-200 { background-color: #334155; }
+html.dark .bg-ink-300 { background-color: #475569; }
+html.dark .bg-ink-400 { background-color: #64748B; }
+
+/* Text */
+html.dark .text-ink-900 { color: #F1F5F9; }
+html.dark .text-ink-800 { color: #E2E8F0; }
+html.dark .text-ink-700 { color: #CBD5E1; }
+html.dark .text-ink-600 { color: #94A3B8; }
+html.dark .text-ink-500 { color: #94A3B8; }
+html.dark .text-ink-400 { color: #64748B; }
+html.dark .text-ink-300 { color: #475569; }
+html.dark .text-ink-200 { color: #334155; }
+
+/* Borders / rings / dividers */
+html.dark .border-ink-50 { border-color: #1E293B; }
+html.dark .border-ink-100 { border-color: #334155; }
+html.dark .border-ink-200 { border-color: #475569; }
+html.dark .border-ink-300 { border-color: #64748B; }
+html.dark .ring-ink-100 { --tw-ring-color: #334155; }
+html.dark .ring-ink-200 { --tw-ring-color: #475569; }
+html.dark .ring-ink-300 { --tw-ring-color: #64748B; }
+html.dark .divide-ink-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1E293B; }
+html.dark .divide-ink-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+
+/* Hover / focus states used throughout cards, menus and nav items */
+html.dark .hover\:bg-ink-50:hover { background-color: #1E293B; }
+html.dark .hover\:bg-ink-100:hover { background-color: #334155; }
+html.dark .hover\:bg-white:hover { background-color: #1E293B; }
+html.dark .hover\:text-ink-900:hover { color: #F1F5F9; }
+html.dark .hover\:border-ink-300:hover { border-color: #64748B; }
+html.dark .focus\:ring-ink-200:focus { --tw-ring-color: #475569; }
+
+/* Translucent variants (opacity-suffixed utility classes are literal class
+   names in Tailwind, so each one used in the codebase is remapped here) */
+html.dark .bg-white\/95 { background-color: rgba(30, 41, 59, 0.95); }
+html.dark .bg-white\/90 { background-color: rgba(30, 41, 59, 0.9); }
+html.dark .bg-white\/85 { background-color: rgba(30, 41, 59, 0.85); }
+html.dark .bg-white\/80 { background-color: rgba(30, 41, 59, 0.8); }
+html.dark .bg-white\/70 { background-color: rgba(30, 41, 59, 0.7); }
+html.dark .bg-ink-50\/80 { background-color: rgba(15, 23, 42, 0.8); }
+html.dark .bg-ink-50\/70 { background-color: rgba(15, 23, 42, 0.7); }
+html.dark .bg-ink-50\/60 { background-color: rgba(15, 23, 42, 0.6); }
+html.dark .bg-ink-50\/50 { background-color: rgba(15, 23, 42, 0.5); }
+html.dark .bg-ink-50\/40 { background-color: rgba(15, 23, 42, 0.4); }
+html.dark .bg-ink-50\/30 { background-color: rgba(15, 23, 42, 0.3); }
+html.dark .bg-ink-50\/20 { background-color: rgba(15, 23, 42, 0.2); }
+html.dark .bg-ink-100\/80 { background-color: rgba(30, 41, 59, 0.8); }
+html.dark .bg-ink-100\/70 { background-color: rgba(30, 41, 59, 0.7); }
+html.dark .bg-ink-100\/60 { background-color: rgba(30, 41, 59, 0.6); }
+html.dark .bg-ink-200\/70 { background-color: rgba(51, 65, 85, 0.7); }
+html.dark .border-ink-200\/90 { border-color: rgba(71, 85, 105, 0.9); }
+html.dark .border-ink-200\/80 { border-color: rgba(71, 85, 105, 0.8); }
+html.dark .border-ink-200\/70 { border-color: rgba(71, 85, 105, 0.7); }
+html.dark .border-ink-200\/60 { border-color: rgba(71, 85, 105, 0.6); }
+html.dark .border-ink-200\/50 { border-color: rgba(71, 85, 105, 0.5); }
+html.dark .border-ink-100\/90 { border-color: rgba(51, 65, 85, 0.9); }
+html.dark .border-ink-100\/80 { border-color: rgba(51, 65, 85, 0.8); }
+html.dark .border-ink-100\/60 { border-color: rgba(51, 65, 85, 0.6); }
+
+/* Glassmorphism helpers */
+html.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(51, 65, 85, 0.8);
+}
+html.dark .glass-card {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(51, 65, 85, 0.9);
+}
+html.dark .glass-header {
+  background: rgba(15, 23, 42, 0.82);
+  border-bottom-color: rgba(51, 65, 85, 0.7);
+}
+
+/* Skeleton loading shimmer */
+html.dark .skeleton { background-color: #1E293B; }
+html.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* Scrollable code/table containers, inputs, etc. that rely on the browser's
+   native dark controls (checkboxes, date pickers) */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color-scheme: dark;
 }

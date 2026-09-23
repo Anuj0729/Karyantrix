@@ -182,7 +182,7 @@ const acceptBid = async (req, res, next) => {
       bid.provider,
       'Your bid was accepted',
       `${req.user.name} hired you for their "${requirement.services.join(', ')}" requirement`,
-      { related_requirement: requirement.id }
+      { related_requirement: requirement.id, related_booking: booking.id }
     );
     emitToUser(bid.provider, 'bid_accepted', { requirement_id: requirement.id, bid_id: bid.id });
     emitToUser(bid.provider, 'bid_status_changed', {
@@ -276,7 +276,7 @@ const hireInterestedProvider = async (req, res, next) => {
       interest.provider,
       "You've been hired",
       `${req.user.name} hired you for their "${requirement.services.join(', ')}" requirement`,
-      { related_requirement: requirement.id }
+      { related_requirement: requirement.id, related_booking: booking.id }
     );
     emitToUser(interest.provider, 'bid_accepted', { requirement_id: requirement.id, bid_id: bid.id });
     emitToUser(interest.provider, 'bid_status_changed', {

@@ -18,7 +18,7 @@ const CancelBookingModal = dynamic(() => import('./CancelBookingModal'));
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
 const avatarUrl = (url) => (!url ? null : url);
 
-export default function BookingCard({ booking, onUpdated }) {
+export default function BookingCard({ booking, onUpdated, highlighted = false }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -105,7 +105,15 @@ export default function BookingCard({ booking, onUpdated }) {
   const canReviewCancellation = booking.status === 'cancelled' && !iCancelled;
 
   return (
-    <Card className="p-5 sm:p-6 rounded-3xl border border-ink-200/80 bg-white shadow-soft hover:shadow-card-hover transition-all duration-300" hover={false}>
+    <Card
+      id={`booking-${booking.id}`}
+      className={`p-5 sm:p-6 rounded-3xl border bg-white shadow-soft hover:shadow-card-hover transition-all duration-300 ${
+        highlighted
+          ? 'border-brand-400 ring-2 ring-brand-300/70 shadow-card-hover'
+          : 'border-ink-200/80'
+      }`}
+      hover={false}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3.5">
           <div className="relative shrink-0">

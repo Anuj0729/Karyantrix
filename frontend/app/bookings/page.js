@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Wallet } from 'lucide-react';
 import api from '../../lib/api';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -21,9 +22,13 @@ const TABS = [
 
 function BookingsContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const openId = searchParams.get('open');
   const [bookings, setBookings] = useState([]);
   const [activeTab, setActiveTab] = useState('');
   const [loading, setLoading] = useState(true);
+  const [highlightId, setHighlightId] = useState(openId);
+  const scrolledRef = useRef(false);
 
   // `silent` skips the loading flag so an in-place refresh (window focus,
   // socket event) never hides the already-rendered list. Toggling `loading`
@@ -73,6 +78,19 @@ function BookingsContent() {
     [bookings, activeTab]
   );
 
+  // A notification can deep-link here with ?open=<bookingId>. Once that booking has
+  // loaded, scroll to it and briefly highlight it so it's obvious which one it means.
+  useEffect(() => {
+    if (!openId || loading || scrolledRef.current) return;
+    const exists = bookings.some((b) => b.id === openId);
+    if (!exists) return;
+    scrolledRef.current = true;
+    const el = document.getElementById(`booking-${openId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [openId, loading, bookings]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-ink-100">
@@ -120,7 +138,12 @@ function BookingsContent() {
       <div className="flex flex-col gap-4">
         {loading && Array.from({ length: 3 }).map((_, i) => <RowSkeleton key={i} />)}
         {!loading && filtered.map((booking) => (
-          <BookingCard key={booking.id} booking={booking} onUpdated={fetchBookings} />
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            onUpdated={fetchBookings}
+            highlighted={booking.id === highlightId}
+          />
         ))}
       </div>
 
@@ -147,7 +170,9 @@ export default function BookingsPage() {
   return (
     <ProtectedRoute allowedRoles={['customer', 'provider']}>
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <BookingsContent />
+        <Suspense fallback={null}>
+          <BookingsContent />
+        </Suspense>
       </div>
     </ProtectedRoute>
   );

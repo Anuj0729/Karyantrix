@@ -240,6 +240,18 @@ export default function RequirementCard({ requirement }) {
 
         <div className="min-h-0">
           <p className="line-clamp-2 text-sm text-ink-700 leading-relaxed">{requirement.description}</p>
+          {requirement.description && requirement.description.length > 90 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openDetail();
+              }}
+              className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
+            >
+              See more
+            </button>
+          )}
         </div>
 
         {requirement.media?.length > 0 && (

@@ -9,6 +9,7 @@ import { LogOut, LifeBuoy, Menu, User, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import ChatButton from './chat/ChatButton';
+import ThemeToggle from './ThemeToggle';
 import Button from './ui/Button';
 import useSwitchToProvider from '../lib/useSwitchToProvider';
 
@@ -94,6 +95,7 @@ export default function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           {!user ? (
             <div className="flex items-center gap-2">
               <Link
@@ -221,6 +223,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           {user && (user.role === 'customer' || user.role === 'provider') && <ChatButton />}
           {user && <NotificationBell />}
           <button

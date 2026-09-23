@@ -43,7 +43,9 @@ export default function NotificationBell() {
     } catch (err) {
 
     }
-    if (n.related_requirement) {
+    if (n.related_booking) {
+      router.push(`/bookings?open=${n.related_booking}`);
+    } else if (n.related_requirement) {
       router.push(`/requirements/${n.related_requirement}`);
     }
   };

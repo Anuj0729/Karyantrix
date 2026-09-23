@@ -9,7 +9,11 @@ import { ToastProvider } from '../components/ui/Toast';
 import { AuthProvider } from '../context/AuthContext';
 import { ChatProvider } from '../context/ChatContext';
 import { NavigationLoadingProvider } from '../context/NavigationLoadingContext';
+import { ThemeProvider } from '../context/ThemeContext';
 import './globals.css';
+
+// Applied before React hydrates so there's no flash of the wrong theme.
+const themeInitScript = `(function(){try{var t=localStorage.getItem('karyantrix-theme');var dark=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;var r=document.documentElement;if(dark){r.classList.add('dark');r.style.colorScheme='dark';}else{r.style.colorScheme='light';}}catch(e){}})();`;
 
 const inter = Inter({
   subsets: ['latin'],
@@ -124,28 +128,31 @@ const websiteJsonLd = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jakarta.variable}`}>
+    <html lang="en" className={`${inter.variable} ${jakarta.variable}`} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="flex min-h-screen flex-col">
+      <body className="flex min-h-screen flex-col" suppressHydrationWarning>
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={websiteJsonLd} />
         <PwaRegister />
-        <ToastProvider>
-          <AuthProvider>
-            <ChatProvider>
-              <NavigationLoadingProvider>
-                <SplashScreen />
-                <Navbar />
-                <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
-                <Footer />
-                <InstallPwaButton />
-              </NavigationLoadingProvider>
-            </ChatProvider>
-          </AuthProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <ChatProvider>
+                <NavigationLoadingProvider>
+                  <SplashScreen />
+                  <Navbar />
+                  <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
+                  <Footer />
+                  <InstallPwaButton />
+                </NavigationLoadingProvider>
+              </ChatProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
