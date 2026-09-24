@@ -235,6 +235,12 @@ function CategoryTile({ category, serviceCount, onToggle, onEdit }) {
   );
 }
 
+const STATUS_FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'all', label: 'All' },
+];
+
 function AdminCategoriesServicesContent() {
   const { toast } = useToast();
   const [categories, setCategories] = useState([]);
@@ -244,7 +250,15 @@ function AdminCategoriesServicesContent() {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [categoryToToggle, setCategoryToToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
-  const pager = usePagination(categories);
+  const [statusFilter, setStatusFilter] = useState('active');
+
+  const filteredCategories = categories.filter((c) => {
+    if (statusFilter === 'active') return c.is_active;
+    if (statusFilter === 'inactive') return !c.is_active;
+    return true;
+  });
+
+  const pager = usePagination(filteredCategories, { resetKey: statusFilter });
 
   const load = async () => {
     setLoading(true);
@@ -299,16 +313,39 @@ function AdminCategoriesServicesContent() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setStatusFilter(f.value)}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+              statusFilter === f.value
+                ? 'bg-brand-600 text-white shadow-xs'
+                : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="h-40 animate-pulse bg-ink-50/50 p-5" />
           ))}
         </div>
-      ) : categories.length === 0 ? (
+      ) : filteredCategories.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-ink-200 bg-white py-16 text-center">
-          <p className="text-sm font-semibold text-ink-700">No categories found</p>
-          <p className="text-xs text-ink-400">Get started by creating your first service category.</p>
+          <p className="text-sm font-semibold text-ink-700">
+            {categories.length === 0 ? 'No categories found' : 'No categories match this filter'}
+          </p>
+          <p className="text-xs text-ink-400">
+            {categories.length === 0
+              ? 'Get started by creating your first service category.'
+              : 'Try a different status filter to see more categories.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

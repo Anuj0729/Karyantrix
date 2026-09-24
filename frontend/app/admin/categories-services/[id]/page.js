@@ -194,6 +194,12 @@ function ToggleCategoryModal({ category, onClose, onConfirm, saving }) {
   );
 }
 
+const STATUS_FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'all', label: 'All' },
+];
+
 function AdminCategoryServicesContent() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -207,7 +213,15 @@ function AdminCategoryServicesContent() {
   const [activatingServiceId, setActivatingServiceId] = useState(null);
   const [categoryToggling, setCategoryToggling] = useState(false);
   const [toggleModalOpen, setToggleModalOpen] = useState(false);
-  const pager = usePagination(services, { resetKey: id });
+  const [statusFilter, setStatusFilter] = useState('active');
+
+  const filteredServices = services.filter((s) => {
+    if (statusFilter === 'active') return s.is_active;
+    if (statusFilter === 'inactive') return !s.is_active;
+    return true;
+  });
+
+  const pager = usePagination(filteredServices, { resetKey: `${id}|${statusFilter}` });
 
   const load = async () => {
     setLoading(true);
@@ -367,6 +381,30 @@ function AdminCategoryServicesContent() {
           </div>
         </div>
       ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setStatusFilter(f.value)}
+                className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                  statusFilter === f.value
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {filteredServices.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-ink-200 bg-white py-16 text-center shadow-soft">
+              <p className="text-sm font-bold text-ink-800">No services match this filter</p>
+              <p className="max-w-xs text-xs text-ink-400">Try a different status filter to see more services.</p>
+            </div>
+          ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {pager.pageItems.map((s, idx) => {
             const ServiceIcon = getServiceIcon(s.name, category.icon);
@@ -456,9 +494,11 @@ function AdminCategoryServicesContent() {
             );
           })}
         </div>
+          )}
+        </>
       )}
 
-      {!loading && <Pagination pager={pager} label="services" />}
+      {!loading && filteredServices.length > 0 && <Pagination pager={pager} label="services" />}
 
       <ServiceFormModal open={createOpen} onClose={() => setCreateOpen(false)} categoryId={id} onSaved={load} />
       <ServiceFormModal

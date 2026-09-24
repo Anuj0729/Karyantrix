@@ -85,6 +85,11 @@ function DeactivateUserModal({ user, onClose, onConfirmed }) {
 }
 
 const ROLE_FILTERS = ['', 'customer', 'provider', 'admin', 'staff'];
+const STATUS_FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Deactivated' },
+  { value: 'all', label: 'All' },
+];
 
 function AdminUsersContent() {
   const searchParams = useSearchParams();
@@ -95,6 +100,7 @@ function AdminUsersContent() {
 
   const [users, setUsers] = useState([]);
   const [roleFilter, setRoleFilter] = useState(roleParam);
+  const [statusFilter, setStatusFilter] = useState('active');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
@@ -156,6 +162,8 @@ function AdminUsersContent() {
   };
 
   const filteredUsers = users.filter((u) => {
+    if (statusFilter === 'active' && !u.is_active) return false;
+    if (statusFilter === 'inactive' && u.is_active) return false;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
     return (
@@ -165,7 +173,7 @@ function AdminUsersContent() {
     );
   });
 
-  const pager = usePagination(filteredUsers, { resetKey: `${roleFilter}|${search}` });
+  const pager = usePagination(filteredUsers, { resetKey: `${roleFilter}|${statusFilter}|${search}` });
 
   return (
     <div className="space-y-6">
@@ -198,6 +206,23 @@ function AdminUsersContent() {
             }`}
           >
             {r ? `${r}s` : 'All Accounts'}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setStatusFilter(f.value)}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+              statusFilter === f.value
+                ? 'bg-brand-600 text-white shadow-xs'
+                : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
+            }`}
+          >
+            {f.label}
           </button>
         ))}
       </div>
