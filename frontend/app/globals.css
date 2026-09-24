@@ -279,3 +279,84 @@ html.dark textarea,
 html.dark select {
   color-scheme: dark;
 }
+
+
+/* ==========================================================================
+   Google Translate — hide the old widget
+   --------------------------------------------------------------------------
+   Translation runs on Google's Website Translator (loaded by
+   components/GoogleTranslateEngine.js) but its own UI is never shown; the
+   language picker is our own <LanguageSwitcher />. Everything Google injects
+   is hidden below, including the newer obfuscated "VIpgJd-*" class names.
+   ========================================================================== */
+
+/* The container the widget is rendered into, and the gadget/dropdown inside it.
+   Kept in the DOM (off-screen, not display:none) because the picker drives the
+   widget's hidden <select class="goog-te-combo"> to switch languages. */
+.gt-engine,
+#google_translate_element {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.goog-te-gadget,
+.goog-te-gadget-simple,
+.goog-te-gadget-icon,
+.goog-logo-link,
+.goog-te-combo {
+  display: none !important;
+}
+
+/* Top "Translated to…" banner, its wrapper, and the body offset it adds. */
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+body > .skiptranslate,
+.VIpgJd-ZVi9od-ORHb-OEVmcd,
+.VIpgJd-ZVi9od-ORHb,
+iframe.VIpgJd-ZVi9od-ORHb-OEVmcd {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+html,
+body {
+  top: 0 !important;
+}
+
+/* Hover tooltip / "original text" balloon and its loading spinner. */
+#goog-gt-tt,
+.goog-tooltip,
+.goog-tooltip:hover,
+.goog-te-balloon-frame,
+.goog-te-spinner-pos,
+.goog-te-spinner-animation,
+.VIpgJd-yAWNEb-L7lbkb,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf-ti6hGc,
+.VIpgJd-ZVi9od-aZ2wEe {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Yellow hover highlight Google paints over translated text. */
+.goog-text-highlight,
+.VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q {
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Translated text is wrapped in <font>; keep it visually identical to the
+   surrounding text. */
+font[style*="vertical-align"] {
+  vertical-align: inherit !important;
+}

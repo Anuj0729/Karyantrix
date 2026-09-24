@@ -1,5 +1,6 @@
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import Footer from '../components/Footer';
+import GoogleTranslateEngine from '../components/GoogleTranslateEngine';
 import InstallPwaButton from '../components/InstallPwaButton';
 import JsonLd from '../components/JsonLd';
 import Navbar from '../components/Navbar';
@@ -138,6 +139,7 @@ export default function RootLayout({ children }) {
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={websiteJsonLd} />
         <PwaRegister />
+        <GoogleTranslateEngine />
         <ThemeProvider>
           <ToastProvider>
             <AuthProvider>

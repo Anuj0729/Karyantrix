@@ -9,6 +9,7 @@ import { LogOut, LifeBuoy, Menu, User, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import ChatButton from './chat/ChatButton';
+import LanguageSwitcher from './LanguageSwitcher';
 import ThemeToggle from './ThemeToggle';
 import Button from './ui/Button';
 import useSwitchToProvider from '../lib/useSwitchToProvider';
@@ -66,10 +67,10 @@ export default function Navbar() {
             />
           </motion.div>
           <div className="flex flex-col">
-            <span className="font-display text-lg font-bold tracking-tight text-ink-900 group-hover:text-brand-600 transition-colors">
+            <span translate="no" className="font-display text-lg font-bold tracking-tight text-ink-900 group-hover:text-brand-600 transition-colors">
               Karyantrix
             </span>
-            <span className="hidden sm:block text-[10px] font-medium tracking-wide uppercase text-ink-500">
+            <span translate="no" className="hidden sm:block text-[10px] font-medium tracking-wide uppercase text-ink-500">
               Kaam Aapka, Zimmedari Hamari
             </span>
           </div>
@@ -95,6 +96,7 @@ export default function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher />
           <ThemeToggle />
           {!user ? (
             <div className="flex items-center gap-2">
@@ -223,6 +225,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
+          <LanguageSwitcher />
           <ThemeToggle />
           {user && (user.role === 'customer' || user.role === 'provider') && <ChatButton />}
           {user && <NotificationBell />}
