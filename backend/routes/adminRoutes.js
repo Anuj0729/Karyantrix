@@ -7,6 +7,7 @@ const {
   getApplications,
   reviewApplication,
   getAllRequirements,
+  getRequirementDetail,
   getProviderDocuments,
   getProviderDocumentDetail,
   getCancelledBookings,
@@ -58,6 +59,7 @@ router.patch('/providers/:id/approve', approveProvider);
 router.get('/applications', getApplications);
 router.patch('/applications/:userId/review', reviewApplication);
 router.get('/requirements', getAllRequirements);
+router.get('/requirements/:id', getRequirementDetail);
 router.get('/provider-documents', getProviderDocuments);
 router.get('/provider-documents/:id', getProviderDocumentDetail);
 

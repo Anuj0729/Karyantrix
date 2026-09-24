@@ -372,6 +372,49 @@ const getAllRequirements = async (req, res, next) => {
   }
 };
 
+const getRequirementDetail = async (req, res, next) => {
+  try {
+    const requirement = await Requirement.findById(req.params.id)
+      .populate({
+        path: 'customer',
+        select:
+          'id name avatar_url is_verified phone createdAt customer_rating_avg customer_rating_count customer_jobs_completed',
+      })
+      .populate({ path: 'hired_provider', select: 'id name phone avatar_url' })
+      .populate({ path: 'categories', select: 'id name slug' })
+      .populate({ path: 'interested_providers.provider', select: 'id name avatar_url is_verified' });
+
+    if (!requirement) return res.status(404).json({ message: 'Requirement not found' });
+
+    const json = requirement.toJSON();
+    if (json.customer) {
+      json.customer.jobs_done = json.customer.customer_jobs_completed || 0;
+    }
+
+    const allBids = await Bid.find({ requirement: requirement.id })
+      .populate({ path: 'provider', select: 'id name avatar_url is_verified' })
+      .sort({ createdAt: -1 });
+
+    // A provider can revise their bid by posting a new one; only their latest is a live offer,
+    // mirroring the dedupe rule providers/customers see on the storefront.
+    const seen = new Set();
+    const bids = [];
+    allBids.forEach((bid) => {
+      const bidderId = String(bid.provider?.id || bid.provider);
+      if (seen.has(bidderId)) return;
+      seen.add(bidderId);
+      bids.push(bid.toJSON());
+    });
+
+    res.json({ requirement: json, bids });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(404).json({ message: 'Requirement not found' });
+    }
+    next(error);
+  }
+};
+
 const getCancelledBookings = async (req, res, next) => {
   try {
     const { cancelled_by_role, reason } = req.query;
@@ -443,6 +486,7 @@ module.exports = {
   getApplications,
   reviewApplication,
   getAllRequirements,
+  getRequirementDetail,
   getProviderDocuments,
   getProviderDocumentDetail,
   getCancelledBookings,

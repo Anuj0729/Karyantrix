@@ -90,7 +90,7 @@ function AdminRequirementsContent() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {loading && Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)}
         {!loading && pager.pageItems.map((r) => <AdminRequirementCard key={r.id} requirement={r} />)}
       </div>

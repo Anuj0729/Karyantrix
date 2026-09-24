@@ -1,14 +1,16 @@
 'use client';
 
-import { Gavel, Heart, MapPin, MessageCircle, Play, User } from 'lucide-react';
-import { useState } from 'react';
-import StatusBadge from '../StatusBadge';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight, MapPin, Maximize2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState, memo } from 'react';
 import Badge from '../ui/Badge';
 import Card from '../ui/Card';
+import Portal from '../ui/Portal';
+import StatusBadge from '../StatusBadge';
+import { resolveMediaUrl } from '../chat/mediaUrl';
 
 const AVATAR_FALLBACK = 'https://i.pravatar.cc/300?img=8';
-
-const mediaUrl = (url) => url;
 
 const EXPERIENCE_LABELS = {
   any: 'Any experience',
@@ -21,149 +23,311 @@ const timeAgo = (dateStr) => {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m`;
+  if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
+  if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d`;
+  if (days < 30) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString();
 };
 
-export default function AdminRequirementCard({ requirement: r }) {
-  const [expanded, setExpanded] = useState(false);
-  const customer = r.customer || {};
-  const media = r.media || [];
-  const primaryMedia = media[0];
-  const extraCount = media.length - 1;
-  const description = r.description || '';
-  const isLong = description.length > 160;
+function MediaLightbox({ media, index, onNavigate, onClose }) {
+  const item = index !== null ? media[index] : null;
+
+  return (
+    <Portal>
+      <AnimatePresence>
+        {item && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[60] bg-black"
+            onClick={onClose}
+          >
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.18 }}
+              className="flex h-full w-full items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {item.type === 'video' ? (
+                <video
+                  src={resolveMediaUrl(item.url)}
+                  className="h-full w-full object-contain"
+                  controls
+                  autoPlay
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={resolveMediaUrl(item.url)}
+                  alt="Requirement attachment"
+                  className="h-full w-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+            </motion.div>
+
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent px-4 py-4 sm:px-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {media.length > 1 ? (
+                <span className="pointer-events-auto rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                  {index + 1} / {media.length}
+                </span>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                aria-label="Close"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+
+            {media.length > 1 && (
+              <>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate(index - 1);
+                    }}
+                    className="absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:left-6"
+                    aria-label="Previous"
+                  >
+                    <ChevronLeft size={22} aria-hidden="true" />
+                  </button>
+                )}
+                {index < media.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate(index + 1);
+                    }}
+                    className="absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:right-6"
+                    aria-label="Next"
+                  >
+                    <ChevronRight size={22} aria-hidden="true" />
+                  </button>
+                )}
+
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-gradient-to-t from-black/60 to-transparent px-4 pb-6 pt-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {media.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onNavigate(i)}
+                      aria-label={`Go to item ${i + 1}`}
+                      className={`pointer-events-auto h-1.5 rounded-full transition-all ${
+                        i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Portal>
+  );
+}
+
+function AdminRequirementCard({ requirement }) {
+  const router = useRouter();
+  const openDetail = () => router.push(`/admin/requirements/${requirement.id}`);
+  const customer = requirement.customer || {};
+  const isFixedPrice = requirement.post_type === 'fixed';
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   return (
     <Card
-      className="flex flex-col overflow-hidden border-ink-200/80 p-0 shadow-xs transition-all hover:border-brand-200 hover:shadow-card"
-      hover={false}
+      className="group relative flex h-[430px] flex-col overflow-hidden border border-ink-200/80 bg-white p-5 sm:p-6 shadow-soft hover:shadow-card-hover transition-all duration-300 rounded-3xl cursor-pointer"
+      onClick={openDetail}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDetail();
+        }
+      }}
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <img
-            src={customer.avatar_url ? mediaUrl(customer.avatar_url) : AVATAR_FALLBACK}
-            alt={customer.name || 'Customer'}
-            className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-ink-100"
-            width={36}
-            height={36}
-            loading="lazy"
-            decoding="async"
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink-900 leading-tight">{customer.name || 'Customer'}</p>
-            <div className="flex items-center gap-1.5 text-[11px] text-ink-400">
-              <span>{timeAgo(r.createdAt)} ago</span>
-              {r.location?.text && (
-                <>
-                  <span className="text-ink-300">&middot;</span>
-                  <span className="flex items-center gap-0.5 truncate">
-                    <MapPin size={10} className="shrink-0" aria-hidden="true" />
-                    <span className="truncate">{r.location.text}</span>
-                  </span>
-                </>
-              )}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative shrink-0">
+              <img
+                src={customer.avatar_url ? resolveMediaUrl(customer.avatar_url) : AVATAR_FALLBACK}
+                alt={customer.name || 'Customer'}
+                className="h-11 w-11 rounded-2xl object-cover ring-2 ring-ink-100 shadow-soft"
+                width={44}
+                height={44}
+                loading="lazy"
+                decoding="async"
+              />
+              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-trust-500 ring-2 ring-white" />
             </div>
-          </div>
-        </div>
-        <StatusBadge status={r.status} kind="requirement" className="shrink-0" />
-      </div>
-
-      <div className="relative aspect-square w-full shrink-0 bg-ink-100">
-        {primaryMedia ? (
-          primaryMedia.type === 'video' ? (
-            <div className="relative h-full w-full bg-black">
-              <video src={mediaUrl(primaryMedia.url)} className="h-full w-full object-cover opacity-90" muted playsInline />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
-                  <Play size={20} className="ml-0.5 text-white" fill="white" aria-hidden="true" />
-                </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-ink-900 leading-tight">{customer.name || 'Customer'}</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-400 mt-1">
+                <span>{timeAgo(requirement.createdAt)}</span>
+                {requirement.location?.text && (
+                  <>
+                    <span className="text-ink-300">•</span>
+                    <span className="flex items-center gap-1 truncate text-ink-500">
+                      <MapPin size={12} className="text-ink-400 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{requirement.location.text}</span>
+                    </span>
+                  </>
+                )}
               </div>
             </div>
-          ) : (
-            <img
-              src={mediaUrl(primaryMedia.url)}
-              alt={(r.services || []).join(', ') || 'Requirement photo'}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-            />
-          )
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-brand-50 via-white to-accent-50 text-brand-300">
-            <Gavel size={40} aria-hidden="true" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-300">No photos attached</span>
           </div>
-        )}
-        {extraCount > 0 && (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
-            +{extraCount} more
-          </span>
-        )}
-        <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">
-          ₹{Number(r.budget || 0).toLocaleString('en-IN')}
-        </span>
-      </div>
 
-      <div className="flex items-center gap-4 px-4 pt-3 text-ink-600">
-        <span className="flex items-center gap-1.5 text-xs font-semibold">
-          <Gavel size={16} className="text-brand-500" aria-hidden="true" />
-          {r.bid_count || 0} bid{r.bid_count === 1 ? '' : 's'}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs font-semibold">
-          <Heart size={16} className="text-rose-400" aria-hidden="true" />
-          {(r.interested_providers || []).length} interested
-        </span>
-        {r.hired_provider && (
-          <span className="ml-auto flex items-center gap-1 truncate text-xs font-semibold text-emerald-700">
-            <MessageCircle size={14} className="shrink-0" aria-hidden="true" />
-            Hired {r.hired_provider.name}
-          </span>
-        )}
-      </div>
+          {typeof requirement.budget === 'number' && (
+            <div className="shrink-0 text-right">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-ink-400 block">Budget</span>
+              <div className="inline-flex items-center gap-1 font-display text-base sm:text-lg font-bold text-brand-600 bg-brand-50/80 px-2.5 py-0.5 rounded-xl border border-brand-100/70">
+                <span>₹</span>
+                {requirement.budget.toLocaleString('en-IN')}
+              </div>
+            </div>
+          )}
+        </div>
 
-      <div className="px-4 pb-4 pt-2">
-        <p className="text-xs leading-relaxed text-ink-700">
-          <span className="mr-1.5 font-bold text-ink-900">{customer.name || 'Customer'}</span>
-          {isLong && !expanded ? `${description.slice(0, 160).trim()}…` : description}
-          {isLong && (
+        <div className="flex h-12 shrink-0 flex-wrap items-start gap-1.5 overflow-hidden pt-1">
+          {(requirement.services || []).map((s) => (
+            <Badge key={s} tone="brand" size="sm" className="font-medium">
+              {s}
+            </Badge>
+          ))}
+          {(requirement.experience_levels || ['any']).map((lvl) => (
+            <Badge key={lvl} tone="neutral" size="sm" className="font-medium">
+              {EXPERIENCE_LABELS[lvl] || 'Any experience'}
+            </Badge>
+          ))}
+          <StatusBadge status={requirement.status} kind="requirement" className="shrink-0" />
+          {isFixedPrice && (
+            <Badge tone="accent" size="sm" className="font-medium">
+              Fixed price
+            </Badge>
+          )}
+        </div>
+
+        <div className="min-h-0">
+          <p className="line-clamp-2 text-sm text-ink-700 leading-relaxed">
+            <span className="mr-1.5 font-bold text-ink-900">{customer.name || 'Customer'}</span>
+            {requirement.description}
+          </p>
+          {requirement.description && requirement.description.length > 90 && (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="ml-1.5 font-semibold text-ink-400 hover:text-brand-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                openDetail();
+              }}
+              className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
             >
-              {expanded ? 'less' : 'more'}
+              See more
             </button>
           )}
-        </p>
-
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {(r.services || []).map((s) => (
-            <Badge key={s} tone="brand" size="sm" className="font-medium">
-              #{s.replace(/\s+/g, '')}
-            </Badge>
-          ))}
-          {(r.categories || []).map((c) => (
-            <Badge key={c.id} tone="purple" size="sm" className="font-medium">
-              {c.name}
-            </Badge>
-          ))}
-          {(r.experience_levels || []).map((lvl) => (
-            <Badge key={lvl} tone="neutral" size="sm" className="font-medium">
-              {EXPERIENCE_LABELS[lvl] || lvl}
-            </Badge>
-          ))}
         </div>
 
-        <div className="mt-3 flex items-center gap-1.5 border-t border-ink-50 pt-2.5 text-[11px] text-ink-400">
-          <User size={11} aria-hidden="true" />
-          {customer.phone || 'No phone on file'}
+        {requirement.media?.length > 0 && (
+          <div className={`grid h-44 shrink-0 gap-2 ${requirement.media.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+            {requirement.media.slice(0, 3).map((m, i) => (
+              <div
+                key={m.url}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex(i);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setLightboxIndex(i);
+                  }
+                }}
+                className="group/media relative h-full cursor-pointer overflow-hidden rounded-2xl bg-ink-100 ring-1 ring-ink-200/50 shadow-soft"
+              >
+                {m.type === 'video' ? (
+                  <div className="relative h-full w-full bg-black/90 flex items-center justify-center">
+                    <video src={resolveMediaUrl(m.url)} className="h-full w-full object-cover opacity-80" muted playsInline />
+                    <span className="absolute px-2 py-0.5 rounded-full bg-black/60 text-[10px] font-semibold text-white backdrop-blur-sm">
+                      Video
+                    </span>
+                  </div>
+                ) : (
+                  <img
+                    src={resolveMediaUrl(m.url)}
+                    alt={`${requirement.services?.[0] || 'Requirement'} media ${i + 1}`}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover/media:scale-105"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+                {i === 2 && requirement.media.length > 3 && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 font-display text-sm font-bold text-white backdrop-blur-xs">
+                    +{requirement.media.length - 3} more
+                  </div>
+                )}
+                <span className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover/media:opacity-100">
+                  <Maximize2 size={12} aria-hidden="true" />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto flex shrink-0 items-center gap-4 border-t border-ink-50 pt-2.5 text-[11px] font-semibold text-ink-500">
+          <span>
+            {requirement.bid_count || 0} bid{requirement.bid_count === 1 ? '' : 's'}
+          </span>
+          <span>{(requirement.interested_providers || []).length} interested</span>
+          {requirement.hired_provider && (
+            <span className="ml-auto truncate text-emerald-700">Hired {requirement.hired_provider.name}</span>
+          )}
         </div>
       </div>
+
+      {requirement.media?.length > 0 && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <MediaLightbox
+            media={requirement.media}
+            index={lightboxIndex}
+            onNavigate={setLightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
+        </div>
+      )}
     </Card>
   );
 }
+
+export default memo(AdminRequirementCard);
