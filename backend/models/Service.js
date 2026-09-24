@@ -13,6 +13,7 @@ const serviceSchema = new mongoose.Schema(
     duration_minutes: { type: Number, default: 60 },
     is_active: { type: Boolean, default: true },
     deactivated_by_category: { type: Boolean, default: false },
+    deactivated_by_catalog_service: { type: Boolean, default: false },
     images: [{ type: String }],
     tags: [{ type: String, maxlength: 40 }],
     location: { type: String, default: null, maxlength: 150 },
@@ -25,6 +26,9 @@ const serviceSchema = new mongoose.Schema(
 
 serviceSchema.index({ category: 1 });
 serviceSchema.index({ provider: 1 });
+
+serviceSchema.index({ is_active: 1, category: 1, createdAt: -1 });
+serviceSchema.index({ is_active: 1, provider: 1 });
 serviceSchema.index(
   { provider: 1, catalog_service: 1 },
   { unique: true, partialFilterExpression: { is_active: true } }

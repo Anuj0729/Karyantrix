@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, MapPin, Maximize2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import Badge from './ui/Badge';
 import Card from './ui/Card';
 import Portal from './ui/Portal';
@@ -145,7 +145,7 @@ function MediaLightbox({ media, index, onNavigate, onClose }) {
   );
 }
 
-export default function RequirementCard({ requirement }) {
+function RequirementCard({ requirement }) {
   const router = useRouter();
   const openDetail = () => router.push(`/requirements/${requirement.id}`);
   const customer = requirement.customer || {};
@@ -317,3 +317,5 @@ export default function RequirementCard({ requirement }) {
     </Card>
   );
 }
+
+export default memo(RequirementCard);

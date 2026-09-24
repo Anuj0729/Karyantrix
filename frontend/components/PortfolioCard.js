@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImageOff } from 'lucide-react';
 import Badge from './ui/Badge';
 import Card from './ui/Card';
 import { resolveMediaUrl } from './chat/mediaUrl';
 
-export default function PortfolioCard({ item, providerId, className = '' }) {
+function PortfolioCard({ item, providerId, className = '' }) {
   const router = useRouter();
   const portfolioId = item?.id || item?._id;
   const href = providerId && portfolioId ? `/providers/${providerId}/portfolio/${portfolioId}` : null;
@@ -70,3 +71,5 @@ export default function PortfolioCard({ item, providerId, className = '' }) {
     </Card>
   );
 }
+
+export default memo(PortfolioCard);

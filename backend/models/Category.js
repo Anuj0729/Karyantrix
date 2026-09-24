@@ -12,6 +12,8 @@ const categorySchema = new mongoose.Schema(
   { timestamps: false }
 );
 
+categorySchema.index({ is_active: 1 });
+
 toJSONPlugin(categorySchema);
 
 module.exports = mongoose.model('Category', categorySchema);

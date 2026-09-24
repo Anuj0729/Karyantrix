@@ -1,58 +1,92 @@
-const { ProviderProfile, User, Service, Category, Notification, Booking, Bid } = require('../models');
-const { emitToUser } = require('../sockets/socketHandler');
-const { resolveViewerRadiusKm, parseViewerCoords, serializeGeoDoc } = require('../utils/geo');
-const { issueAuthTokens } = require('../utils/authCookies');
-const { hasApprovedProviderProfile, canSwitchToProvider } = require('../utils/userPayload');
-const { ADMIN_ROLES, isAdminRole } = require('../utils/roles');
+const {
+  ProviderProfile,
+  User,
+  Service,
+  Category,
+  Notification,
+  Booking,
+  Bid,
+} = require("../models");
+const { emitToUser } = require("../sockets/socketHandler");
+const {
+  resolveViewerRadiusKm,
+  parseViewerCoords,
+  serializeGeoDoc,
+} = require("../utils/geo");
+const { issueAuthTokens } = require("../utils/authCookies");
+const {
+  hasApprovedProviderProfile,
+  canSwitchToProvider,
+} = require("../utils/userPayload");
+const { ADMIN_ROLES, isAdminRole } = require("../utils/roles");
 
-const ACTIVE_BOOKING_STATUSES = ['awaiting_advance', 'in_progress', 'work_completed'];
+const ACTIVE_BOOKING_STATUSES = [
+  "awaiting_advance",
+  "in_progress",
+  "work_completed",
+];
 
 const REQUIRED_APPLICATION_FIELDS = [
-  { key: 'professional_title', label: 'Professional title' },
-  { key: 'bio', label: 'Bio / about' },
-  { key: 'city', label: 'Location' },
-  { key: 'service_area', label: 'Service area' },
-  { key: 'experience_years', label: 'Years of experience' },
-  { key: 'categories', label: 'Primary category', isArray: true },
-  { key: 'skills', label: 'Skills', isArray: true },
-  { key: 'languages', label: 'Languages', isArray: true },
-  { key: 'service_radius_km', label: 'Service radius' },
+  { key: "professional_title", label: "Professional title" },
+  { key: "bio", label: "Bio / about" },
+  { key: "city", label: "Location" },
+  { key: "service_area", label: "Service area" },
+  { key: "experience_years", label: "Years of experience" },
+  { key: "categories", label: "Primary category", isArray: true },
+  { key: "skills", label: "Skills", isArray: true },
+  { key: "languages", label: "Languages", isArray: true },
+  { key: "service_radius_km", label: "Service radius" },
 ];
 
 const isFieldComplete = (profile, field) => {
   const val = profile[field.key];
   if (field.isArray) return Array.isArray(val) && val.length > 0;
-  return val !== null && val !== undefined && val !== '';
+  return val !== null && val !== undefined && val !== "";
 };
 
-const hasPreciseLocation = (profile) => profile.location && profile.location.lat != null && profile.location.lng != null;
+const hasPreciseLocation = (profile) =>
+  profile.location &&
+  profile.location.lat != null &&
+  profile.location.lng != null;
 
 const hasKycDocuments = (profile) =>
   Boolean(
     profile.kyc_documents?.aadhar_front &&
-      profile.kyc_documents?.aadhar_back &&
-      profile.kyc_documents?.passbook_front &&
-      profile.kyc_documents?.live_photo
+    profile.kyc_documents?.aadhar_back &&
+    profile.kyc_documents?.passbook_front &&
+    profile.kyc_documents?.live_photo,
   );
 
 const buildApplicationMeta = async (profile) => {
-  const missing = REQUIRED_APPLICATION_FIELDS.filter((f) => !isFieldComplete(profile, f)).map((f) => f.label);
-  if (!hasPreciseLocation(profile)) missing.push('Precise location');
-  if (!hasKycDocuments(profile)) missing.push('KYC documents (Aadhaar front & back, passbook front, live profile photo)');
+  const missing = REQUIRED_APPLICATION_FIELDS.filter(
+    (f) => !isFieldComplete(profile, f),
+  ).map((f) => f.label);
+  if (!hasPreciseLocation(profile)) missing.push("Precise location");
+  if (!hasKycDocuments(profile))
+    missing.push(
+      "KYC documents (Aadhaar front & back, passbook front, live profile photo)",
+    );
 
   const serviceCount = await Service.countDocuments({ provider: profile.user });
-  if (serviceCount === 0) missing.push('At least one service');
+  if (serviceCount === 0) missing.push("At least one service");
 
   const totalChecks = REQUIRED_APPLICATION_FIELDS.length + 3;
   const completed = totalChecks - missing.length;
   const completion_percentage = Math.round((completed / totalChecks) * 100);
 
-  return { missing, completion_percentage, service_count: serviceCount, can_submit: missing.length === 0 };
+  return {
+    missing,
+    completion_percentage,
+    service_count: serviceCount,
+    can_submit: missing.length === 0,
+  };
 };
 
 const getMyProfile = async (req, res, next) => {
   try {
-    const profile = await ProviderProfile.findOne({ user: req.user.id }).populate('categories', 'id name slug');
+    const profile = await ProviderProfile.findOne({
+      user: req.user.id,
+    }).populate("categories", "id name slug");
     res.json({ profile });
   } catch (error) {
     next(error);
@@ -62,19 +96,36 @@ const getMyProfile = async (req, res, next) => {
 const updateMyProfile = async (req, res, next) => {
   try {
     const profile = await ProviderProfile.findOne({ user: req.user.id });
-    if (!profile) return res.status(404).json({ message: 'Provider profile not found' });
+    if (!profile)
+      return res.status(404).json({ message: "Provider profile not found" });
 
     const EDITABLE_FIELDS = [
-      'bio', 'service_area', 'city', 'experience_years', 'is_available',
-      'professional_title', 'categories', 'skills', 'languages', 'certifications',
-      'portfolio', 'starting_price', 'starting_price_type', 'response_time_minutes', 'service_radius_km', 'availability',
-      'location', 'kyc_documents',
+      "bio",
+      "service_area",
+      "city",
+      "experience_years",
+      "is_available",
+      "professional_title",
+      "categories",
+      "skills",
+      "languages",
+      "certifications",
+      "portfolio",
+      "starting_price",
+      "starting_price_type",
+      "response_time_minutes",
+      "service_radius_km",
+      "availability",
+      "location",
+      "kyc_documents",
     ];
 
     if (req.body.service_radius_km !== undefined) {
       const radius = Number(req.body.service_radius_km);
       if (Number.isNaN(radius) || radius < 1 || radius > 200) {
-        return res.status(400).json({ message: 'Service radius must be between 1 and 200 km' });
+        return res
+          .status(400)
+          .json({ message: "Service radius must be between 1 and 200 km" });
       }
     }
 
@@ -83,7 +134,7 @@ const updateMyProfile = async (req, res, next) => {
     }
     await profile.save();
 
-    res.json({ message: 'Profile updated', profile });
+    res.json({ message: "Profile updated", profile });
   } catch (error) {
     next(error);
   }
@@ -92,33 +143,44 @@ const updateMyProfile = async (req, res, next) => {
 const becomeProvider = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.role === 'provider') {
-      return res.status(400).json({ message: 'You are already registered as a service provider' });
+    if (user.role === "provider") {
+      return res
+        .status(400)
+        .json({ message: "You are already registered as a service provider" });
     }
-    if (user.role !== 'customer') {
-      return res.status(403).json({ message: 'This account type cannot apply to become a service provider' });
+    if (user.role !== "customer") {
+      return res
+        .status(403)
+        .json({
+          message:
+            "This account type cannot apply to become a service provider",
+        });
     }
     if (await hasApprovedProviderProfile(user.id)) {
       return res.status(400).json({
-        message: 'You already have an approved provider account. Switch back to it instead of applying again.',
+        message:
+          "You already have an approved provider account. Switch back to it instead of applying again.",
         can_switch_to_provider: true,
       });
     }
 
     let profile = await ProviderProfile.findOneAndUpdate(
       { user: user.id },
-      { $setOnInsert: { user: user.id, application_status: 'draft' } },
-      { new: true, upsert: true }
+      { $setOnInsert: { user: user.id, application_status: "draft" } },
+      { new: true, upsert: true },
     );
-    if (profile.application_status === 'rejected' || profile.application_status === 'changes_required') {
-      profile.application_status = 'incomplete';
+    if (
+      profile.application_status === "rejected" ||
+      profile.application_status === "changes_required"
+    ) {
+      profile.application_status = "incomplete";
       await profile.save();
     }
 
     const meta = await buildApplicationMeta(profile);
-    res.json({ message: 'Provider application started', profile, ...meta });
+    res.json({ message: "Provider application started", profile, ...meta });
   } catch (error) {
     next(error);
   }
@@ -127,10 +189,14 @@ const becomeProvider = async (req, res, next) => {
 const switchToCustomer = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.role !== 'provider') {
-      return res.status(400).json({ message: 'Only provider accounts can switch to a customer account' });
+    if (user.role !== "provider") {
+      return res
+        .status(400)
+        .json({
+          message: "Only provider accounts can switch to a customer account",
+        });
     }
 
     const activeBookingCount = await Booking.countDocuments({
@@ -139,27 +205,41 @@ const switchToCustomer = async (req, res, next) => {
     });
     if (activeBookingCount > 0) {
       return res.status(400).json({
-        message: 'You have active bookings in progress. Please complete or cancel them before switching to a customer account.',
+        message:
+          "You have active bookings in progress. Please complete or cancel them before switching to a customer account.",
       });
     }
 
-    await Bid.updateMany({ provider: user.id, status: 'pending' }, { $set: { status: 'rejected' } });
+    await Bid.updateMany(
+      { provider: user.id, status: "pending" },
+      { $set: { status: "rejected" } },
+    );
 
-    user.role = 'customer';
+    user.role = "customer";
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
     await ProviderProfile.findOneAndUpdate(
       { user: user.id },
-      { $set: { is_available: false, is_online: false, is_approved: false, application_status: 'approved' } }
+      {
+        $set: {
+          is_available: false,
+          is_online: false,
+          is_approved: false,
+          application_status: "approved",
+        },
+      },
     );
 
     const { accessToken } = issueAuthTokens(res, user);
 
     res.json({
-      message: 'Your account has been switched to a customer account',
+      message: "Your account has been switched to a customer account",
       accessToken,
-      user: { ...user.toJSON(), can_switch_to_provider: await canSwitchToProvider(user) },
+      user: {
+        ...user.toJSON(),
+        can_switch_to_provider: await canSwitchToProvider(user),
+      },
     });
   } catch (error) {
     next(error);
@@ -169,37 +249,55 @@ const switchToCustomer = async (req, res, next) => {
 const switchToProvider = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.role === 'provider') {
-      return res.status(400).json({ message: 'You are already using your provider account' });
+    if (user.role === "provider") {
+      return res
+        .status(400)
+        .json({ message: "You are already using your provider account" });
     }
-    if (user.role !== 'customer') {
-      return res.status(403).json({ message: 'This account type cannot switch to a provider account' });
+    if (user.role !== "customer") {
+      return res
+        .status(403)
+        .json({
+          message: "This account type cannot switch to a provider account",
+        });
     }
-    if (user.account_status !== 'active') {
-      return res.status(403).json({ message: 'Your account is not active, so it cannot be switched to a provider account' });
+    if (user.account_status !== "active") {
+      return res
+        .status(403)
+        .json({
+          message:
+            "Your account is not active, so it cannot be switched to a provider account",
+        });
     }
 
     if (!(await hasApprovedProviderProfile(user.id))) {
       return res.status(400).json({
-        message: 'You do not have an approved provider account to switch back to. Please apply to become a provider first.',
+        message:
+          "You do not have an approved provider account to switch back to. Please apply to become a provider first.",
       });
     }
 
-    user.role = 'provider';
+    user.role = "provider";
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
     await ProviderProfile.findOneAndUpdate(
       { user: user.id },
-      { $set: { is_approved: true, is_available: true, application_status: 'approved' } }
+      {
+        $set: {
+          is_approved: true,
+          is_available: true,
+          application_status: "approved",
+        },
+      },
     );
 
     const { accessToken } = issueAuthTokens(res, user);
 
     res.json({
-      message: 'You are back on your provider account',
+      message: "You are back on your provider account",
       accessToken,
       user: { ...user.toJSON(), can_switch_to_provider: false },
     });
@@ -210,11 +308,18 @@ const switchToProvider = async (req, res, next) => {
 
 const getMyApplication = async (req, res, next) => {
   try {
-    let profile = await ProviderProfile.findOne({ user: req.user.id }).populate('categories', 'id name slug');
+    let profile = await ProviderProfile.findOne({ user: req.user.id }).populate(
+      "categories",
+      "id name slug",
+    );
     if (!profile) {
       return res.json({
         profile: null,
-        missing: [...REQUIRED_APPLICATION_FIELDS.map((f) => f.label), 'Precise location', 'At least one service'],
+        missing: [
+          ...REQUIRED_APPLICATION_FIELDS.map((f) => f.label),
+          "Precise location",
+          "At least one service",
+        ],
         completion_percentage: 0,
         service_count: 0,
         can_submit: false,
@@ -230,32 +335,55 @@ const getMyApplication = async (req, res, next) => {
 const saveApplicationStep = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.role === 'provider') {
-      return res.status(400).json({ message: 'You are already an active provider' });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.role === "provider") {
+      return res
+        .status(400)
+        .json({ message: "You are already an active provider" });
     }
 
     let profile = await ProviderProfile.findOne({ user: req.user.id });
     if (!profile) profile = new ProviderProfile({ user: req.user.id });
 
-    if (['approved', 'submitted', 'under_review'].includes(profile.application_status)) {
-      return res.status(400).json({ message: `Application is already ${profile.application_status.replace('_', ' ')} and can no longer be edited.` });
+    if (
+      ["approved", "submitted", "under_review"].includes(
+        profile.application_status,
+      )
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: `Application is already ${profile.application_status.replace("_", " ")} and can no longer be edited.`,
+        });
     }
 
     const EDITABLE_FIELDS = [
-      'professional_title', 'bio', 'city', 'service_area', 'experience_years',
-      'categories', 'skills', 'certifications', 'portfolio', 'languages',
-      'service_radius_km', 'starting_price', 'starting_price_type', 'availability', 'location', 'kyc_documents',
+      "professional_title",
+      "bio",
+      "city",
+      "service_area",
+      "experience_years",
+      "categories",
+      "skills",
+      "certifications",
+      "portfolio",
+      "languages",
+      "service_radius_km",
+      "starting_price",
+      "starting_price_type",
+      "availability",
+      "location",
+      "kyc_documents",
     ];
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) profile[field] = req.body[field];
     }
 
-    profile.application_status = 'incomplete';
+    profile.application_status = "incomplete";
     await profile.save();
 
     const meta = await buildApplicationMeta(profile);
-    res.json({ message: 'Application saved', profile, ...meta });
+    res.json({ message: "Application saved", profile, ...meta });
   } catch (error) {
     next(error);
   }
@@ -264,40 +392,56 @@ const saveApplicationStep = async (req, res, next) => {
 const submitApplication = async (req, res, next) => {
   try {
     const profile = await ProviderProfile.findOne({ user: req.user.id });
-    if (!profile) return res.status(404).json({ message: 'Start your application first' });
+    if (!profile)
+      return res.status(404).json({ message: "Start your application first" });
 
-    if (['submitted', 'under_review', 'approved'].includes(profile.application_status)) {
-      return res.status(400).json({ message: `Application is already ${profile.application_status.replace('_', ' ')}.` });
+    if (
+      ["submitted", "under_review", "approved"].includes(
+        profile.application_status,
+      )
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: `Application is already ${profile.application_status.replace("_", " ")}.`,
+        });
     }
 
     const meta = await buildApplicationMeta(profile);
     if (!meta.can_submit) {
-      return res.status(400).json({ message: 'Please complete all required fields before submitting', missing: meta.missing });
+      return res
+        .status(400)
+        .json({
+          message: "Please complete all required fields before submitting",
+          missing: meta.missing,
+        });
     }
 
-    profile.application_status = 'submitted';
-    profile.verification_status = 'pending';
+    profile.application_status = "submitted";
+    profile.verification_status = "pending";
     profile.application_feedback = null;
     await profile.save();
 
-    const admins = await User.find({ role: { $in: ADMIN_ROLES } }).select('_id');
-    const applicant = await User.findById(req.user.id).select('name');
+    const admins = await User.find({ role: { $in: ADMIN_ROLES } }).select(
+      "_id",
+    );
+    const applicant = await User.findById(req.user.id).select("name");
     await Promise.all(
       admins.map(async (admin) => {
-        emitToUser(admin.id, 'notification', {
-          title: 'New provider application',
-          message: `${applicant?.name || 'A customer'} submitted a provider application awaiting your review.`,
+        emitToUser(admin.id, "notification", {
+          title: "New provider application",
+          message: `${applicant?.name || "A customer"} submitted a provider application awaiting your review.`,
         });
         await Notification.create({
           user: admin.id,
-          title: 'New provider application',
-          message: `${applicant?.name || 'A customer'} submitted a provider application awaiting your review.`,
-          type: 'application_status',
+          title: "New provider application",
+          message: `${applicant?.name || "A customer"} submitted a provider application awaiting your review.`,
+          type: "application_status",
         });
-      })
+      }),
     );
 
-    res.json({ message: 'Application submitted for admin review', profile });
+    res.json({ message: "Application submitted for admin review", profile });
   } catch (error) {
     next(error);
   }
@@ -315,35 +459,64 @@ const AGG_SORT_MAP = {
 const getProviders = async (req, res, next) => {
   try {
     const {
-      search, category, location, minPrice, maxPrice, minRating,
-      minExperience, availableNow, sort, page = 1, limit = 12, radius,
+      search,
+      category,
+      location,
+      minPrice,
+      maxPrice,
+      minRating,
+      minExperience,
+      availableNow,
+      sort,
+      page = 1,
+      limit = 12,
+      radius,
     } = req.query;
 
     const match = { is_approved: true };
-    if (location) match.city = { $regex: location, $options: 'i' };
+    if (location) match.city = { $regex: location, $options: "i" };
     if (minRating) match.avg_rating = { $gte: Number(minRating) };
     if (minExperience) match.experience_years = { $gte: Number(minExperience) };
-    if (availableNow === 'true') match.is_available = true;
+    if (availableNow === "true") match.is_available = true;
     if (minPrice || maxPrice) {
       match.starting_price = {};
       if (minPrice) match.starting_price.$gte = Number(minPrice);
       if (maxPrice) match.starting_price.$lte = Number(maxPrice);
     }
     if (category) {
-      const categoryDoc = await Category.findOne({ slug: category }).select('_id');
-      if (!categoryDoc) return res.json({ providers: [], count: 0, page: Number(page), pages: 0 });
+      const categoryDoc = await Category.findOne({ slug: category }).select(
+        "_id",
+      );
+      if (!categoryDoc)
+        return res.json({
+          providers: [],
+          count: 0,
+          page: Number(page),
+          pages: 0,
+        });
       match.categories = categoryDoc._id;
     }
 
-    const activeUserIds = await User.find({ account_status: 'active' }).select('_id').lean();
+    // Scoped to role: 'provider' since that's the only role this listing
+    // ever matches against — pulling every active customer/admin id too
+    // (as the previous query did) is wasted work once the user table is
+    // large, and the new {account_status, is_active} index above makes
+    // this narrower query cheap.
+    const activeUserIds = await User.find({
+      role: "provider",
+      account_status: "active",
+      is_active: true,
+    })
+      .select("_id")
+      .lean();
     match.user = { $in: activeUserIds.map((u) => u._id) };
 
     if (search) {
-      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       const nameMatchedUsers = await User.find({
         _id: { $in: activeUserIds.map((u) => u._id) },
         name: re,
-      }).select('_id');
+      }).select("_id");
 
       match.$or = [
         { professional_title: re },
@@ -364,8 +537,11 @@ const getProviders = async (req, res, next) => {
 
       const geoNearStage = {
         $geoNear: {
-          near: { type: 'Point', coordinates: [viewerCoords.lng, viewerCoords.lat] },
-          distanceField: 'distance_m',
+          near: {
+            type: "Point",
+            coordinates: [viewerCoords.lng, viewerCoords.lat],
+          },
+          distanceField: "distance_m",
           maxDistance: viewerRadiusKm * 1000,
           spherical: true,
           query: match,
@@ -373,17 +549,18 @@ const getProviders = async (req, res, next) => {
       };
 
       const pipeline = [geoNearStage];
-      if (sort && AGG_SORT_MAP[sort]) pipeline.push({ $sort: AGG_SORT_MAP[sort] });
+      if (sort && AGG_SORT_MAP[sort])
+        pipeline.push({ $sort: AGG_SORT_MAP[sort] });
       pipeline.push({ $skip: (pageNum - 1) * limitNum }, { $limit: limitNum });
 
       const [rows, countResult] = await Promise.all([
         ProviderProfile.aggregate(pipeline),
-        ProviderProfile.aggregate([geoNearStage, { $count: 'total' }]),
+        ProviderProfile.aggregate([geoNearStage, { $count: "total" }]),
       ]);
 
       const populated = await ProviderProfile.populate(rows, [
-        { path: 'user', select: 'id name avatar_url account_status' },
-        { path: 'categories', select: 'id name slug' },
+        { path: "user", select: "id name avatar_url account_status" },
+        { path: "categories", select: "id name slug" },
       ]);
 
       const providers = populated.map((p) => {
@@ -395,23 +572,35 @@ const getProviders = async (req, res, next) => {
 
       const count = countResult[0]?.total || 0;
       return res.json({
-        providers, count, page: pageNum, pages: Math.ceil(count / limitNum), radius_km: viewerRadiusKm,
+        providers,
+        count,
+        page: pageNum,
+        pages: Math.ceil(count / limitNum),
+        radius_km: viewerRadiusKm,
       });
     }
 
-    const sortOption = AGG_SORT_MAP[sort] || { avg_rating: -1, total_reviews: -1 };
+    const sortOption = AGG_SORT_MAP[sort] || {
+      avg_rating: -1,
+      total_reviews: -1,
+    };
 
     const [count, providers] = await Promise.all([
       ProviderProfile.countDocuments(match),
       ProviderProfile.find(match)
-        .populate({ path: 'user', select: 'id name avatar_url account_status' })
-        .populate('categories', 'id name slug')
+        .populate({ path: "user", select: "id name avatar_url account_status" })
+        .populate("categories", "id name slug")
         .sort(sortOption)
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum),
     ]);
 
-    res.json({ providers, count, page: pageNum, pages: Math.ceil(count / limitNum) });
+    res.json({
+      providers,
+      count,
+      page: pageNum,
+      pages: Math.ceil(count / limitNum),
+    });
   } catch (error) {
     next(error);
   }
@@ -419,31 +608,30 @@ const getProviders = async (req, res, next) => {
 
 const getProviderProfile = async (req, res, next) => {
   try {
-    // A user who has applied to become a provider still has role "customer"
-    // until an admin approves the application, so we cannot filter on
-    // role: 'provider' here or applicants (and admins reviewing them)
-    // would never be able to open the profile. Instead, load the user by
-    // id and decide visibility based on their provider profile status.
-    const provider = await User.findById(req.params.id).select('id name avatar_url location createdAt role');
-    if (!provider) return res.status(404).json({ message: 'Provider not found' });
+    const provider = await User.findById(req.params.id).select(
+      "id name avatar_url location createdAt role",
+    );
+    if (!provider)
+      return res.status(404).json({ message: "Provider not found" });
 
-    const isLiveProvider = provider.role === 'provider';
-    const isViewingAdmin = Boolean(req.user) && ADMIN_ROLES.includes(req.user.role);
-    const isViewingSelf = Boolean(req.user) && String(req.user.id) === String(provider.id);
+    const isLiveProvider = provider.role === "provider";
+    const isViewingAdmin =
+      Boolean(req.user) && ADMIN_ROLES.includes(req.user.role);
+    const isViewingSelf =
+      Boolean(req.user) && String(req.user.id) === String(provider.id);
 
-    // Non-provider accounts (e.g. pending provider applicants) only get
-    // their profile shown to admins reviewing the application, or to
-    // themselves — everyone else gets the normal "not found" response so
-    // unapproved applicants aren't exposed publicly.
     if (!isLiveProvider && !isViewingAdmin && !isViewingSelf) {
-      return res.status(404).json({ message: 'Provider not found' });
+      return res.status(404).json({ message: "Provider not found" });
     }
 
     const [profile, services] = await Promise.all([
-      ProviderProfile.findOne({ user: provider.id }).populate('categories', 'id name slug'),
+      ProviderProfile.findOne({ user: provider.id }).populate(
+        "categories",
+        "id name slug",
+      ),
       Service.find({ provider: provider.id, is_active: true }).populate({
-        path: 'category',
-        select: 'id name slug',
+        path: "category",
+        select: "id name slug",
       }),
     ]);
 

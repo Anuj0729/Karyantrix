@@ -1,4 +1,18 @@
-const { ServiceCatalog } = require('../models');
+const { ServiceCatalog, Service } = require('../models');
+
+const cascadeCatalogServiceStatus = async (catalogServiceId, isActive) => {
+  if (isActive) {
+    await Service.updateMany(
+      { catalog_service: catalogServiceId, is_active: false, deactivated_by_catalog_service: true },
+      { $set: { is_active: true, deactivated_by_catalog_service: false } }
+    );
+  } else {
+    await Service.updateMany(
+      { catalog_service: catalogServiceId, is_active: true },
+      { $set: { is_active: false, deactivated_by_catalog_service: true } }
+    );
+  }
+};
 
 const getServiceCatalog = async (req, res, next) => {
   try {
@@ -55,12 +69,17 @@ const updateServiceCatalog = async (req, res, next) => {
     if (category_id !== undefined) service.category = category_id;
     if (name !== undefined) service.name = name;
     if (description !== undefined) service.description = description;
+    const statusChanged = is_active !== undefined && is_active !== service.is_active;
     if (is_active !== undefined) {
       service.is_active = is_active;
       service.deactivated_by_category = false;
     }
     await service.save();
     await service.populate({ path: 'category', select: 'id name slug' });
+
+    if (statusChanged) {
+      await cascadeCatalogServiceStatus(service.id, service.is_active);
+    }
 
     res.json({ message: 'Service updated', service });
   } catch (error) {
@@ -75,6 +94,7 @@ const deleteServiceCatalog = async (req, res, next) => {
     service.is_active = false;
     service.deactivated_by_category = false;
     await service.save();
+    await cascadeCatalogServiceStatus(service.id, false);
     res.json({ message: 'Service deactivated' });
   } catch (error) {
     next(error);

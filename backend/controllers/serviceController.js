@@ -30,18 +30,17 @@ const getServices = async (req, res, next) => {
       where.catalog_service = catalog_service;
     }
 
-    const { ProviderProfile } = require('../models');
+    const { ProviderProfile, User } = require('../models');
 
-    // Only services belonging to an approved provider should ever be
-    // publicly browsable. A customer mid-way through their provider
-    // application can already create one service listing, but that
-    // listing must stay hidden from "Browse services" until an admin
-    // approves their profile — otherwise unapproved applicants effectively
-    // get a public storefront before review.
     const approvedProviderIds = (
       await ProviderProfile.find({ is_approved: true }).select('user').lean()
     ).map((p) => p.user);
-    where.provider = { $in: approvedProviderIds };
+    const activeApprovedProviderIds = (
+      await User.find({ _id: { $in: approvedProviderIds }, is_active: true, account_status: 'active' })
+        .select('_id')
+        .lean()
+    ).map((u) => u._id);
+    where.provider = { $in: activeApprovedProviderIds };
 
     let radiusKm = null;
     const viewerCoords = parseViewerCoords(req.query);
@@ -49,6 +48,7 @@ const getServices = async (req, res, next) => {
       radiusKm = resolveViewerRadiusKm(radius, req.user);
       const nearbyProfiles = await ProviderProfile.find({
         is_approved: true,
+        user: { $in: activeApprovedProviderIds },
         'location.geo': {
           $near: {
             $geometry: { type: 'Point', coordinates: [viewerCoords.lng, viewerCoords.lat] },
@@ -100,21 +100,21 @@ const getServices = async (req, res, next) => {
 
 const getServiceById = async (req, res, next) => {
   try {
-    const { ProviderProfile } = require('../models');
+    const { ProviderProfile, User } = require('../models');
     const service = await Service.findById(req.params.id)
       .populate('category')
       .populate({ path: 'provider', select: 'id name phone avatar_url' });
     if (!service) return res.status(404).json({ message: 'Service not found' });
 
-    const providerProfile = await ProviderProfile.findOne({ user: service.provider?.id });
+    const [providerProfile, providerUser] = await Promise.all([
+      ProviderProfile.findOne({ user: service.provider?.id }),
+      User.findById(service.provider?.id).select('is_active account_status'),
+    ]);
 
-    // Same rule as the browse-services list: a service whose provider is
-    // not yet approved should not be viewable by the public. The provider
-    // themself (still previewing their own listing) and admins reviewing
-    // the application are the only exceptions.
     const isViewingAdmin = Boolean(req.user) && ADMIN_ROLES.includes(req.user.role);
     const isViewingOwner = Boolean(req.user) && String(req.user.id) === String(service.provider?.id);
-    if (!providerProfile?.is_approved && !isViewingAdmin && !isViewingOwner) {
+    const isProviderVisible = providerUser?.is_active && providerUser?.account_status === 'active';
+    if ((!providerProfile?.is_approved || !isProviderVisible) && !isViewingAdmin && !isViewingOwner) {
       return res.status(404).json({ message: 'Service not found' });
     }
 
@@ -241,13 +241,20 @@ const updateService = async (req, res, next) => {
     if (duration_minutes !== undefined) service.duration_minutes = duration_minutes;
     if (is_active !== undefined) {
       if (is_active) {
-        const category = await Category.findById(service.category).select('is_active');
+        const [category, catalogEntry] = await Promise.all([
+          Category.findById(service.category).select('is_active'),
+          ServiceCatalog.findById(service.catalog_service).select('is_active'),
+        ]);
         if (!category || !category.is_active) {
           return res.status(400).json({ message: 'This listing is under a category that is currently deactivated' });
+        }
+        if (!catalogEntry || !catalogEntry.is_active) {
+          return res.status(400).json({ message: 'This service has been deactivated in the catalog by an admin' });
         }
       }
       service.is_active = is_active;
       service.deactivated_by_category = false;
+      service.deactivated_by_catalog_service = false;
     }
     if (images !== undefined) service.images = images;
     if (tags !== undefined) service.tags = tags;

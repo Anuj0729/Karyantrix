@@ -30,6 +30,8 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ role: 1 });
 userSchema.index({ account_status: 1 });
 
+userSchema.index({ account_status: 1, is_active: 1 });
+
 userSchema.pre('validate', function (next) {
   if (!this.email && !this.phone) {
     return next(new Error('A user must have at least an email or a phone number'));
