@@ -27,6 +27,7 @@ require('./models');
 const { initSocket } = require('./sockets/socketHandler');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimit');
+const auditLog = require('./middleware/auditLog');
 
 const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
@@ -103,6 +104,7 @@ if (UPLOAD_ROOT !== LEGACY_UPLOAD_ROOT) {
 }
 app.use(cookieParser());
 app.use('/api', apiLimiter);
+app.use(auditLog);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'karyantrix-backend', timestamp: new Date().toISOString() });

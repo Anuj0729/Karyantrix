@@ -54,11 +54,10 @@ const {
 const { getAllTickets, updateTicketStatus } = require('../controllers/supportController');
 const { getAuditLogs } = require('../controllers/auditLogController');
 const { protect, authorize } = require('../middleware/auth');
-const auditLog = require('../middleware/auditLog');
 
 const router = express.Router();
 
-router.use(protect, authorize('admin', 'staff'), auditLog);
+router.use(protect, authorize('admin', 'staff'));
 
 router.get('/dashboard', getDashboardStats);
 router.get('/users', getUsers);
@@ -105,8 +104,6 @@ router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
 
-// Blog — create/update/delete restricted to admin & staff (see router.use above);
-// public reading happens through the separate /api/blogs routes for everyone.
 router.get('/blogs', getAllBlogsAdmin);
 router.get('/blogs/:id', getBlogByIdAdmin);
 router.post('/blogs', createBlog);

@@ -19,6 +19,7 @@ const PlatformSetting = require('./PlatformSetting');
 const SupportTicket = require('./SupportTicket');
 const AdminAuditLog = require('./AdminAuditLog');
 const Blog = require('./Blog');
+const UserSession = require('./UserSession');
 
 module.exports = {
   User,
@@ -42,4 +43,5 @@ module.exports = {
   SupportTicket,
   AdminAuditLog,
   Blog,
+  UserSession,
 };

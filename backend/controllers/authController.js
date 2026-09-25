@@ -4,6 +4,7 @@ const { OAuth2Client } = require('google-auth-library');
 const { User, PendingUser, Otp, ProviderProfile } = require('../models');
 const { generateAccessToken } = require('../utils/generateToken');
 const { issueAuthTokens, clearRefreshCookie } = require('../utils/authCookies');
+const { createSession, touchSession, revokeAllSessions } = require('../services/sessionService');
 const jwt = require('jsonwebtoken');
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
@@ -127,7 +128,8 @@ const verifyRegister = async (req, res, next) => {
 
     await PendingUser.deleteOne({ _id: pending._id });
 
-    const { accessToken } = issueAuthTokens(res, user);
+    const session = await createSession(user, req);
+    const { accessToken } = issueAuthTokens(res, user, true, session.id);
     res.status(201).json({ message: 'Account created and verified successfully', accessToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
@@ -157,7 +159,8 @@ const login = async (req, res, next) => {
       return res.status(403).json({ message: 'This account has been deactivated' });
     }
 
-    const { accessToken } = issueAuthTokens(res, foundUser, Boolean(remember));
+    const session = await createSession(foundUser, req);
+    const { accessToken } = issueAuthTokens(res, foundUser, Boolean(remember), session.id);
     res.json({ message: 'Logged in successfully', accessToken, user: await publicUser(foundUser) });
   } catch (error) {
     next(error);
@@ -227,7 +230,8 @@ const googleAuth = async (req, res, next) => {
       });
     }
 
-    const { accessToken } = issueAuthTokens(res, user);
+    const session = await createSession(user, req);
+    const { accessToken } = issueAuthTokens(res, user, true, session.id);
     res.json({ message: 'Signed in with Google successfully', accessToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
@@ -279,7 +283,8 @@ const verifyLoginOtp = async (req, res, next) => {
 
     await Otp.deleteOne({ _id: record._id });
 
-    const { accessToken } = issueAuthTokens(res, user);
+    const session = await createSession(user, req);
+    const { accessToken } = issueAuthTokens(res, user, true, session.id);
     res.json({ message: 'Logged in successfully', accessToken, user: await publicUser(user) });
   } catch (error) {
     next(error);
@@ -628,7 +633,9 @@ const refresh = async (req, res, next) => {
       return res.status(401).json({ message: 'Refresh token revoked, please log in again' });
     }
 
-    const accessToken = generateAccessToken(user);
+    if (decoded.sid) await touchSession(decoded.sid);
+
+    const accessToken = generateAccessToken(user, decoded.sid);
     res.json({ accessToken });
   } catch (error) {
     next(error);
@@ -639,6 +646,7 @@ const logout = async (req, res, next) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
     await User.findByIdAndUpdate(req.user.id, { $inc: { tokenVersion: 1 } });
+    await revokeAllSessions(req.user.id);
     clearRefreshCookie(res);
     res.json({ message: 'Logged out successfully' });
   } catch (error) {

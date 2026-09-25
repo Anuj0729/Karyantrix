@@ -1,16 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CircleAlert, ClipboardList, Search, ShieldCheck, UserRound } from 'lucide-react';
+import { CircleAlert, ClipboardList, Laptop, Search, ShieldCheck, UserRound } from 'lucide-react';
 import api from '../../../lib/api';
 import BackButton from '../../../components/BackButton';
 import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
 import { RowSkeleton } from '../../../components/ui/Skeleton';
-import { TextInput } from '../../../components/ui/Field';
+import { TextInput, SelectInput } from '../../../components/ui/Field';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
 import usePagination from '../../../lib/usePagination';
 import Pagination from '../../../components/admin/Pagination';
+
+const ROLE_TABS = [
+  { key: '', label: 'Everyone' },
+  { key: 'admin,staff', label: 'Admin & staff' },
+  { key: 'customer', label: 'Customers' },
+  { key: 'provider', label: 'Providers' },
+];
+
+const ROLE_TONE = {
+  admin: 'purple',
+  staff: 'purple',
+  customer: 'brand',
+  provider: 'cyan',
+};
 
 const METHOD_TABS = [
   { key: '', label: 'All actions' },
@@ -55,6 +69,7 @@ function MetaChips({ meta }) {
 }
 
 function AuditLogRow({ log }) {
+  const deviceCount = log.actor_active_devices || 0;
   return (
     <Card className="p-[18px] border-ink-200/80 shadow-xs" hover={false}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -64,12 +79,17 @@ function AuditLogRow({ log }) {
               <UserRound size={13} className="text-ink-400" aria-hidden="true" />
               {log.actor?.name || log.actor_name}
             </span>
-            <Badge tone="purple" size="sm" icon={<ShieldCheck size={11} aria-hidden="true" />}>
+            <Badge tone={ROLE_TONE[log.actor_role] || 'purple'} size="sm" icon={<ShieldCheck size={11} aria-hidden="true" />}>
               {log.actor_role}
             </Badge>
             <Badge tone={METHOD_TONE[log.method] || 'neutral'} size="sm">
               {log.method}
             </Badge>
+            {log.actor && (
+              <Badge tone={deviceCount > 1 ? 'warning' : 'neutral'} size="sm" icon={<Laptop size={11} aria-hidden="true" />}>
+                {deviceCount} device{deviceCount === 1 ? '' : 's'} logged in
+              </Badge>
+            )}
             {!log.success && (
               <Badge tone="danger" size="sm" icon={<CircleAlert size={11} aria-hidden="true" />}>
                 Failed &middot; {log.status_code}
@@ -92,6 +112,7 @@ function AuditLogRow({ log }) {
 function AdminAuditLogsContent() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState('');
   const [method, setMethod] = useState('');
   const [search, setSearch] = useState('');
 
@@ -106,8 +127,22 @@ function AdminAuditLogsContent() {
   useEffect(load, []);
   useRefetchOnFocus(load);
 
+  const roleTabCounts = useMemo(() => {
+    const counts = { '': logs.length };
+    ROLE_TABS.forEach((tab) => {
+      if (!tab.key) return;
+      const roles = tab.key.split(',');
+      counts[tab.key] = logs.filter((log) => roles.includes(log.actor_role)).length;
+    });
+    return counts;
+  }, [logs]);
+
   const filtered = useMemo(() => {
     return logs.filter((log) => {
+      if (role) {
+        const roles = role.split(',');
+        if (!roles.includes(log.actor_role)) return false;
+      }
       if (method && log.method !== method) return false;
       if (search.trim()) {
         const q = search.trim().toLowerCase();
@@ -116,44 +151,50 @@ function AdminAuditLogsContent() {
       }
       return true;
     });
-  }, [logs, method, search]);
+  }, [logs, role, method, search]);
 
-  const pager = usePagination(filtered, { resetKey: `${method}:${search}` });
+  const pager = usePagination(filtered, { resetKey: `${role}:${method}:${search}` });
 
   return (
     <div className="space-y-6">
       <BackButton href="/admin" label="Back to dashboard" />
       <div>
-        <h2 className="text-xl font-bold tracking-tight text-ink-900">Admin Action Ledger</h2>
+        <h2 className="text-xl font-bold tracking-tight text-ink-900">Platform Action Ledger</h2>
         <p className="text-xs text-ink-500">
-          Every create, update, and delete performed in the admin panel, with who did it and when. Read-only &mdash;
-          nothing here can be edited or removed.
+          Every create, update, and delete performed across the platform &mdash; by admins and staff in the admin panel,
+          and by customers and providers on the public app &mdash; with who did it, when, and how many devices they're
+          currently logged in on. Read-only &mdash; nothing here can be edited or removed.
         </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {METHOD_TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setMethod(t.key)}
-              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-                method === t.key
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="w-full sm:w-64">
+        <div className="w-full sm:max-w-xs">
           <TextInput
             leftIcon={<Search size={15} aria-hidden="true" />}
-            placeholder="Search by admin, action, or path"
+            placeholder="Search by name, action, or path"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="!py-2 text-xs"
           />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <SelectInput value={role} onChange={(e) => setRole(e.target.value)} className="!w-auto !py-2 text-xs">
+            {ROLE_TABS.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+                {typeof roleTabCounts[t.key] === 'number' ? ` (${roleTabCounts[t.key]})` : ''}
+              </option>
+            ))}
+          </SelectInput>
+
+          <SelectInput value={method} onChange={(e) => setMethod(e.target.value)} className="!w-auto !py-2 text-xs">
+            {METHOD_TABS.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </SelectInput>
         </div>
       </div>
 
@@ -165,7 +206,7 @@ function AdminAuditLogsContent() {
             <p className="text-sm font-semibold text-ink-700">No actions recorded yet</p>
             <p className="text-xs text-ink-400">
               {logs.length === 0
-                ? 'Actions performed in the admin panel will show up here as they happen.'
+                ? 'Actions performed on the platform will show up here as they happen.'
                 : 'No actions match your current filter.'}
             </p>
           </div>

@@ -5,7 +5,7 @@ const adminAuditLogSchema = new mongoose.Schema(
   {
     actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     actor_name: { type: String, required: true },
-    actor_role: { type: String, enum: ['admin', 'staff'], required: true },
+    actor_role: { type: String, enum: ['admin', 'staff', 'customer', 'provider'], required: true },
     method: { type: String, required: true },
     path: { type: String, required: true },
     action: { type: String, required: true },
@@ -21,6 +21,7 @@ const adminAuditLogSchema = new mongoose.Schema(
 adminAuditLogSchema.index({ createdAt: -1 });
 adminAuditLogSchema.index({ actor: 1, createdAt: -1 });
 adminAuditLogSchema.index({ method: 1 });
+adminAuditLogSchema.index({ actor_role: 1, createdAt: -1 });
 
 toJSONPlugin(adminAuditLogSchema);
 

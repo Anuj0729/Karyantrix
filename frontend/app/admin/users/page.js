@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ShieldAlert, Users, X } from 'lucide-react';
+import { Search, ShieldAlert, Users, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { useToast } from '../../../components/ui/Toast';
 import Card from '../../../components/ui/Card';
@@ -10,6 +10,7 @@ import Badge from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import { RowSkeleton } from '../../../components/ui/Skeleton';
+import { TextInput, SelectInput } from '../../../components/ui/Field';
 import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
 import usePagination from '../../../lib/usePagination';
 import Pagination from '../../../components/admin/Pagination';
@@ -177,54 +178,47 @@ function AdminUsersContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-ink-900">User & Provider Accounts</h2>
-          <p className="text-xs text-ink-500">Monitor active accounts, enforce suspensions, and verify providers</p>
-        </div>
+      <div>
+        <h2 className="text-xl font-bold tracking-tight text-ink-900">User & Provider Accounts</h2>
+        <p className="text-xs text-ink-500">Monitor active accounts, enforce suspensions, and verify providers</p>
+      </div>
 
-        <div className="w-full sm:w-72">
-          <input
-            type="text"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full sm:max-w-xs">
+          <TextInput
+            leftIcon={<Search size={15} aria-hidden="true" />}
+            placeholder="Search by name, email, phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, phone..."
-            className="w-full rounded-xl border border-ink-200/80 bg-white px-4 py-2 text-xs text-ink-900 placeholder-ink-400 outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 shadow-xs"
+            className="!py-2 text-xs"
           />
         </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        {ROLE_FILTERS.map((r) => (
-          <button
-            key={r}
-            onClick={() => setRoleFilter(r)}
-            className={`rounded-xl px-4 py-2 text-xs font-semibold capitalize transition-all ${
-              roleFilter === r
-                ? 'bg-brand-600 text-white shadow-xs'
-                : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
-            }`}
+        <div className="flex flex-wrap gap-2">
+          <SelectInput
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="!w-auto !py-2 text-xs"
           >
-            {r ? `${r}s` : 'All Accounts'}
-          </button>
-        ))}
-      </div>
+            {ROLE_FILTERS.map((r) => (
+              <option key={r} value={r}>
+                {r ? `${r.charAt(0).toUpperCase()}${r.slice(1)}s` : 'All Accounts'}
+              </option>
+            ))}
+          </SelectInput>
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setStatusFilter(f.value)}
-            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-              statusFilter === f.value
-                ? 'bg-brand-600 text-white shadow-xs'
-                : 'border border-ink-200/80 bg-white text-ink-600 hover:border-brand-300 hover:bg-ink-50/50'
-            }`}
+          <SelectInput
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="!w-auto !py-2 text-xs"
           >
-            {f.label}
-          </button>
-        ))}
+            {STATUS_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </SelectInput>
+        </div>
       </div>
 
       {loading && (

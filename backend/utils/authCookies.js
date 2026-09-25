@@ -17,8 +17,6 @@ const baseCookieOptions = () => {
   };
 };
 
-// remember = true  -> persistent cookie with maxAge, survives browser close
-// remember = false -> browser-session cookie (no maxAge), deleted when the browser closes
 const setRefreshCookie = (res, token, remember = true) => {
   const options = remember
     ? { ...baseCookieOptions(), maxAge: getRefreshMaxAgeMs() }
@@ -30,9 +28,9 @@ const clearRefreshCookie = (res) => {
   res.clearCookie(REFRESH_COOKIE_NAME, baseCookieOptions());
 };
 
-const issueAuthTokens = (res, user, remember = true) => {
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
+const issueAuthTokens = (res, user, remember = true, sessionId = null) => {
+  const accessToken = generateAccessToken(user, sessionId);
+  const refreshToken = generateRefreshToken(user, sessionId);
   setRefreshCookie(res, refreshToken, remember);
   return { accessToken };
 };
