@@ -4,7 +4,8 @@ const getMyNotifications = async (req, res, next) => {
   try {
     const notifications = await Notification.find({ user: req.user.id })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .populate('related_blog', 'slug title');
     const unreadCount = notifications.filter((n) => !n.is_read).length;
     res.json({ notifications, unreadCount });
   } catch (error) {

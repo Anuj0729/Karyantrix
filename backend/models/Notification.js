@@ -9,6 +9,7 @@ const notificationSchema = new mongoose.Schema(
     type: { type: String, default: 'general' },
     related_requirement: { type: mongoose.Schema.Types.ObjectId, ref: 'Requirement', default: null },
     related_booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', default: null },
+    related_blog: { type: mongoose.Schema.Types.ObjectId, ref: 'Blog', default: null },
     is_read: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

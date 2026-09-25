@@ -71,6 +71,10 @@ function NotificationsContent() {
     if (!n.is_read) markOneRead(id);
     if (n.related_booking) router.push(`/bookings?open=${n.related_booking}`);
     else if (n.related_requirement) router.push(`/requirements/${n.related_requirement}`);
+    else if (n.related_blog) {
+      const slug = typeof n.related_blog === 'object' ? n.related_blog.slug : n.related_blog;
+      if (slug) router.push(`/blog/${slug}`);
+    }
   };
 
   const markAllRead = async () => {

@@ -18,6 +18,7 @@ const WalletTransaction = require('./WalletTransaction');
 const PlatformSetting = require('./PlatformSetting');
 const SupportTicket = require('./SupportTicket');
 const AdminAuditLog = require('./AdminAuditLog');
+const Blog = require('./Blog');
 
 module.exports = {
   User,
@@ -40,4 +41,5 @@ module.exports = {
   PlatformSetting,
   SupportTicket,
   AdminAuditLog,
+  Blog,
 };

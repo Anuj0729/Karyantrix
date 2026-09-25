@@ -19,6 +19,10 @@ const ACTION_PATTERNS = [
   { method: 'POST', test: /^\/service-catalog$/, label: 'Created a service catalog entry' },
   { method: 'PUT', test: /^\/service-catalog\/[^/]+$/, label: 'Updated a service catalog entry' },
   { method: 'DELETE', test: /^\/service-catalog\/[^/]+$/, label: 'Deleted a service catalog entry' },
+  { method: 'POST', test: /^\/blogs\/upload-cover$/, label: 'Uploaded a blog cover image' },
+  { method: 'POST', test: /^\/blogs$/, label: 'Created a blog post' },
+  { method: 'PUT', test: /^\/blogs\/[^/]+$/, label: 'Updated a blog post' },
+  { method: 'DELETE', test: /^\/blogs\/[^/]+$/, label: 'Deleted a blog post' },
 ];
 
 const describeAction = (method, path) => {

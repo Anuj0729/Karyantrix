@@ -43,6 +43,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const blogRoutes = require('./routes/blogRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -127,6 +128,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/blogs', blogRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

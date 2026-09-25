@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { User, ProviderProfile, Requirement, Category, Service, Notification, Report, Bid, Booking } = require('../models');
+const { User, ProviderProfile, Requirement, Category, Service, Notification, Report, Bid, Booking, Blog } = require('../models');
 const { emitToUser } = require('../sockets/socketHandler');
 
 const getDashboardStats = async (req, res, next) => {
@@ -13,6 +13,7 @@ const getDashboardStats = async (req, res, next) => {
       pendingReports,
       cancelledBookings,
       pendingProviderApplications,
+      publishedBlogs,
     ] = await Promise.all([
       User.countDocuments({ role: 'customer' }),
       User.countDocuments({ role: 'provider' }),
@@ -22,6 +23,12 @@ const getDashboardStats = async (req, res, next) => {
       Report.countDocuments({ status: { $in: ['pending', 'under_review'] } }),
       Booking.countDocuments({ status: 'cancelled' }),
       ProviderProfile.countDocuments({ application_status: { $in: ['submitted', 'under_review'] } }),
+      // A scheduled post whose time has already arrived counts as published too —
+      // it goes live for everyone the moment it's next read, so the stat should
+      // not lag behind that.
+      Blog.countDocuments({
+        $or: [{ status: 'published' }, { status: 'scheduled', scheduled_at: { $lte: new Date() } }],
+      }),
     ]);
 
     res.json({
@@ -34,6 +41,7 @@ const getDashboardStats = async (req, res, next) => {
         pendingReports,
         cancelledBookings,
         pendingProviderApplications,
+        publishedBlogs,
       },
     });
   } catch (error) {

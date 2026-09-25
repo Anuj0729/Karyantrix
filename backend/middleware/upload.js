@@ -37,4 +37,16 @@ const uploadBookingProgressMedia = multer({
   limits: { fileSize: 50 * 1024 * 1024, files: 10 },
 });
 
-module.exports = { uploadRequirementMedia, uploadAvatar, uploadChunkFile, uploadBookingProgressMedia };
+const uploadBlogCoverImage = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageOnlyFilter,
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+});
+
+module.exports = {
+  uploadRequirementMedia,
+  uploadAvatar,
+  uploadChunkFile,
+  uploadBookingProgressMedia,
+  uploadBlogCoverImage,
+};

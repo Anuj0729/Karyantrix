@@ -41,6 +41,7 @@ const COLUMNS = [
       { href: '/', label: 'How It Works' },
       { href: '/categories', label: 'All Services' },
       { href: '/providers?verifiedOnly=true', label: 'Verified Experts' },
+      { href: '/blog', label: 'Blog' },
     ],
   },
 ];

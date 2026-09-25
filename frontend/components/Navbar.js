@@ -36,6 +36,7 @@ export default function Navbar() {
     { href: '/providers', label: 'Find Providers' },
     { href: '/categories', label: 'Browse Services' },
     { href: '/requirements', label: 'Requirements' },
+    { href: '/blog', label: 'Blog' },
   ];
 
   const isLinkActive = (href) => {
@@ -67,10 +68,10 @@ export default function Navbar() {
             />
           </motion.div>
           <div className="flex flex-col">
-            <span translate="no" className="font-display text-lg font-bold tracking-tight text-ink-900 group-hover:text-brand-600 transition-colors">
+            <span className="font-display text-lg font-bold tracking-tight text-ink-900 group-hover:text-brand-600 transition-colors">
               Karyantrix
             </span>
-            <span translate="no" className="hidden sm:block text-[10px] font-medium tracking-wide uppercase text-ink-500">
+            <span className="hidden sm:block text-[10px] font-medium tracking-wide uppercase text-ink-500">
               Kaam Aapka, Zimmedari Hamari
             </span>
           </div>

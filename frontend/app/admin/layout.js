@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
   Ban,
+  BookOpen,
   Briefcase,
   ClipboardList,
   ExternalLink,
@@ -53,6 +54,11 @@ const ADMIN_NAV = [
     href: '/admin/requirements',
     label: 'Requirements',
     icon: Gavel,
+  },
+  {
+    href: '/admin/blog',
+    label: 'Blog',
+    icon: BookOpen,
   },
   {
     href: '/admin/wallet',

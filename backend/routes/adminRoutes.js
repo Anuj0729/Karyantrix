@@ -27,6 +27,15 @@ const {
   deleteServiceCatalog,
 } = require('../controllers/serviceCatalogController');
 const { getReports, getReportById, resolveReport } = require('../controllers/reportController');
+const {
+  getAllBlogsAdmin,
+  getBlogByIdAdmin,
+  createBlog,
+  updateBlog,
+  deleteBlog,
+  uploadBlogCover,
+} = require('../controllers/blogController');
+const { uploadBlogCoverImage } = require('../middleware/upload');
 const { getAnalytics, getLineChart, getBarChart, getPieChart } = require('../controllers/analyticsController');
 const {
   getSettings: getWalletSettings,
@@ -95,6 +104,15 @@ router.get('/categories', getAllCategoriesAdmin);
 router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
+
+// Blog — create/update/delete restricted to admin & staff (see router.use above);
+// public reading happens through the separate /api/blogs routes for everyone.
+router.get('/blogs', getAllBlogsAdmin);
+router.get('/blogs/:id', getBlogByIdAdmin);
+router.post('/blogs', createBlog);
+router.put('/blogs/:id', updateBlog);
+router.delete('/blogs/:id', deleteBlog);
+router.post('/blogs/upload-cover', uploadBlogCoverImage.single('cover'), uploadBlogCover);
 
 router.get('/service-catalog', getServiceCatalogAdmin);
 router.post('/service-catalog', createServiceCatalog);

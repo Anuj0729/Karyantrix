@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   Ban,
   BarChart3,
+  BookOpen,
   Briefcase,
   Check,
   ChevronRight,
@@ -134,6 +135,16 @@ function AdminDashboardContent() {
       href: '/admin/provider-applications',
       alert: (stats?.pendingProviderApplications || 0) > 0,
     },
+    {
+      label: 'Published Blogs',
+      value: stats?.publishedBlogs,
+      icon: BookOpen,
+      color: 'text-pink-600',
+      bg: 'bg-pink-50',
+      border: 'hover:border-pink-200',
+      subtext: 'Live posts visible to everyone',
+      href: '/admin/blog',
+    },
   ];
 
   const quickLinks = [
@@ -206,6 +217,14 @@ function AdminDashboardContent() {
       icon: Gavel,
       iconColor: 'text-teal-600',
       iconBg: 'bg-teal-50 group-hover:bg-teal-600 group-hover:text-white',
+    },
+    {
+      href: '/admin/blog',
+      label: 'Blog',
+      description: 'Publish articles and updates visible to customers, providers & staff',
+      icon: BookOpen,
+      iconColor: 'text-pink-600',
+      iconBg: 'bg-pink-50 group-hover:bg-pink-600 group-hover:text-white',
     },
   ];
 

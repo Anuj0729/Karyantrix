@@ -12,16 +12,17 @@ async function safeGet(path) {
 }
 
 export default async function sitemap() {
-  const staticRoutes = ['', '/categories', '/providers', '/login', '/register'].map((route) => ({
+  const staticRoutes = ['', '/categories', '/providers', '/blog', '/login', '/register'].map((route) => ({
     url: `${siteUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: route === '' ? 'daily' : 'weekly',
     priority: route === '' ? 1 : 0.7,
   }));
 
-  const [categories, providers] = await Promise.all([
+  const [categories, providers, blogs] = await Promise.all([
     safeGet('/categories'),
     safeGet('/providers'),
+    safeGet('/blogs?limit=100'),
   ]);
 
   const categoryRoutes = (categories?.categories || categories || [])
@@ -42,5 +43,14 @@ export default async function sitemap() {
       priority: 0.5,
     }));
 
-  return [...staticRoutes, ...categoryRoutes, ...providerRoutes];
+  const blogRoutes = (blogs?.blogs || blogs || [])
+    .filter((b) => b?.slug)
+    .map((b) => ({
+      url: `${siteUrl}/blog/${b.slug}`,
+      lastModified: b.updatedAt ? new Date(b.updatedAt) : new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    }));
+
+  return [...staticRoutes, ...categoryRoutes, ...providerRoutes, ...blogRoutes];
 }
