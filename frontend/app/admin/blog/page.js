@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   CalendarDays,
@@ -15,70 +15,75 @@ import {
   Trash2,
   UploadCloud,
   X,
-} from 'lucide-react';
-import api from '../../../lib/api';
-import { useToast } from '../../../components/ui/Toast';
-import Card from '../../../components/ui/Card';
-import Button from '../../../components/ui/Button';
-import { Field, TextInput, TextArea, TagInput } from '../../../components/ui/Field';
-import { resolveMediaUrl } from '../../../components/chat/mediaUrl';
-import useRefetchOnFocus from '../../../lib/useRefetchOnFocus';
-import usePagination from '../../../lib/usePagination';
-import Pagination from '../../../components/admin/Pagination';
+} from "lucide-react";
+import api from "../../../lib/api";
+import { useToast } from "../../../components/ui/Toast";
+import Card from "../../../components/ui/Card";
+import Button from "../../../components/ui/Button";
+import {
+  Field,
+  TextInput,
+  TextArea,
+  TagInput,
+} from "../../../components/ui/Field";
+import { resolveMediaUrl } from "../../../components/chat/mediaUrl";
+import useRefetchOnFocus from "../../../lib/useRefetchOnFocus";
+import usePagination from "../../../lib/usePagination";
+import Pagination from "../../../components/admin/Pagination";
 
-const slugify = (text = '') =>
+const slugify = (text = "") =>
   text
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 
 const formatDate = (value) => {
-  if (!value) return '—';
+  if (!value) return "—";
   try {
-    return new Date(value).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+    return new Date(value).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
   } catch {
-    return '—';
+    return "—";
   }
 };
 
 const formatDateTime = (value) => {
-  if (!value) return '—';
+  if (!value) return "—";
   try {
-    return new Date(value).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+    return new Date(value).toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
     });
   } catch {
-    return '—';
+    return "—";
   }
 };
 
 const toDatetimeLocal = (value) => {
   const d = value ? new Date(value) : new Date(Date.now() + 5 * 60 * 1000);
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, "0");
 
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-    d.getDate()
+    d.getDate(),
   )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 const EMPTY_FORM = {
-  title: '',
-  slug: '',
-  excerpt: '',
-  content: '',
-  cover_image: '',
+  title: "",
+  slug: "",
+  excerpt: "",
+  content: "",
+  cover_image: "",
   tags: [],
-  publishMode: 'now',
-  scheduled_at: '',
+  publishMode: "now",
+  scheduled_at: "",
 };
 
 function BlogFormModal({ open, onClose, onSaved, blog }) {
@@ -97,19 +102,19 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
     setForm(
       blog
         ? {
-            title: blog.title || '',
-            slug: blog.slug || '',
-            excerpt: blog.excerpt || '',
-            content: blog.content || '',
-            cover_image: blog.cover_image || '',
+            title: blog.title || "",
+            slug: blog.slug || "",
+            excerpt: blog.excerpt || "",
+            content: blog.content || "",
+            cover_image: blog.cover_image || "",
             tags: blog.tags || [],
-            publishMode: blog.status === 'scheduled' ? 'schedule' : 'now',
+            publishMode: blog.status === "scheduled" ? "schedule" : "now",
             scheduled_at:
-              blog.status === 'scheduled'
+              blog.status === "scheduled"
                 ? toDatetimeLocal(blog.scheduled_at)
-                : '',
+                : "",
           }
-        : EMPTY_FORM
+        : EMPTY_FORM,
     );
   }, [open, blog]);
 
@@ -121,17 +126,17 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
   const handleDismiss = async () => {
     if (!isEdit && (form.title.trim() || form.content.trim())) {
       try {
-        await api.post('/admin/blogs', {
-          title: form.title.trim() || 'Untitled draft',
+        await api.post("/admin/blogs", {
+          title: form.title.trim() || "Untitled draft",
           slug: form.slug || undefined,
           excerpt: form.excerpt,
-          content: form.content.trim() || ' ',
+          content: form.content.trim() || " ",
           cover_image: form.cover_image,
           tags: form.tags,
-          status: 'draft',
+          status: "draft",
         });
 
-        toast('Unsaved post kept as a draft', { type: 'info' });
+        toast("Unsaved post kept as a draft", { type: "info" });
         onSaved();
       } catch {
         // Ignore autosave errors.
@@ -143,7 +148,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
 
   const handleCoverUpload = async (e) => {
     const file = e.target.files?.[0];
-    e.target.value = '';
+    e.target.value = "";
 
     if (!file) return;
 
@@ -151,30 +156,24 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
 
     try {
       const formData = new FormData();
-      formData.append('cover', file);
+      formData.append("cover", file);
 
-      const { data } = await api.post(
-        '/admin/blogs/upload-cover',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      const { data } = await api.post("/admin/blogs/upload-cover", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       setForm((f) => ({
         ...f,
         cover_image: data.url,
       }));
 
-      toast('Cover image uploaded', { type: 'success' });
+      toast("Cover image uploaded", { type: "success" });
     } catch (err) {
-      toast(
-        err.response?.data?.message ||
-          'Could not upload the cover image',
-        { type: 'error' }
-      );
+      toast(err.response?.data?.message || "Could not upload the cover image", {
+        type: "error",
+      });
     } finally {
       setUploading(false);
     }
@@ -183,9 +182,9 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (form.publishMode === 'schedule' && !form.scheduled_at) {
-      toast('Pick a date and time to schedule this post', {
-        type: 'error',
+    if (form.publishMode === "schedule" && !form.scheduled_at) {
+      toast("Pick a date and time to schedule this post", {
+        type: "error",
       });
       return;
     }
@@ -193,7 +192,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
     setSaving(true);
 
     try {
-      const scheduling = form.publishMode === 'schedule';
+      const scheduling = form.publishMode === "schedule";
 
       const payload = {
         title: form.title,
@@ -202,7 +201,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
         content: form.content,
         cover_image: form.cover_image,
         tags: form.tags,
-        status: scheduling ? 'scheduled' : 'published',
+        status: scheduling ? "scheduled" : "published",
         scheduled_at: scheduling
           ? new Date(form.scheduled_at).toISOString()
           : null,
@@ -211,21 +210,15 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
       if (isEdit) {
         await api.put(`/admin/blogs/${blog.id}`, payload);
 
-        toast(
-          scheduling
-            ? 'Blog post scheduled'
-            : 'Blog post updated',
-          { type: 'success' }
-        );
+        toast(scheduling ? "Blog post scheduled" : "Blog post updated", {
+          type: "success",
+        });
       } else {
-        await api.post('/admin/blogs', payload);
+        await api.post("/admin/blogs", payload);
 
-        toast(
-          scheduling
-            ? 'Blog post scheduled'
-            : 'Blog post created',
-          { type: 'success' }
-        );
+        toast(scheduling ? "Blog post scheduled" : "Blog post created", {
+          type: "success",
+        });
       }
 
       closeAndReset();
@@ -233,8 +226,8 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
     } catch (err) {
       toast(
         err.response?.data?.message ||
-          `Could not ${isEdit ? 'update' : 'create'} the post`,
-        { type: 'error' }
+          `Could not ${isEdit ? "update" : "create"} the post`,
+        { type: "error" },
       );
     } finally {
       setSaving(false);
@@ -267,7 +260,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
         >
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-ink-900">
-              {isEdit ? 'Edit blog post' : 'Create blog post'}
+              {isEdit ? "Edit blog post" : "Create blog post"}
             </h2>
 
             <button
@@ -289,9 +282,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
                   setForm((f) => ({
                     ...f,
                     title: e.target.value,
-                    slug: slugTouched
-                      ? f.slug
-                      : slugify(e.target.value),
+                    slug: slugTouched ? f.slug : slugify(e.target.value),
                   }))
                 }
                 placeholder="e.g. 5 tips before hiring a home electrician"
@@ -350,10 +341,10 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-ink-200/80 bg-white px-3.5 py-2 text-xs font-semibold text-ink-700 shadow-soft hover:bg-ink-50">
                   <UploadCloud size={14} aria-hidden="true" />
                   {uploading
-                    ? 'Uploading...'
+                    ? "Uploading..."
                     : coverPreview
-                    ? 'Replace image'
-                    : 'Upload image'}
+                      ? "Replace image"
+                      : "Upload image"}
 
                   <input
                     type="file"
@@ -370,7 +361,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        cover_image: '',
+                        cover_image: "",
                       }))
                     }
                     className="text-xs font-semibold text-rose-600 hover:text-rose-700"
@@ -381,10 +372,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
               </div>
             </Field>
 
-            <Field
-              label="Tags"
-              hint="Press Enter or comma to add a tag"
-            >
+            <Field label="Tags" hint="Press Enter or comma to add a tag">
               <TagInput
                 value={form.tags}
                 onChange={(tags) =>
@@ -423,13 +411,13 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
                   onClick={() =>
                     setForm((f) => ({
                       ...f,
-                      publishMode: 'now',
+                      publishMode: "now",
                     }))
                   }
                   className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
-                    form.publishMode === 'now'
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-ink-200/80 bg-white text-ink-600 hover:bg-ink-50'
+                    form.publishMode === "now"
+                      ? "border-brand-500 bg-brand-50 text-brand-700"
+                      : "border-ink-200/80 bg-white text-ink-600 hover:bg-ink-50"
                   }`}
                 >
                   <Send size={14} aria-hidden="true" />
@@ -441,15 +429,14 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
                   onClick={() =>
                     setForm((f) => ({
                       ...f,
-                      publishMode: 'schedule',
-                      scheduled_at:
-                        f.scheduled_at || toDatetimeLocal(),
+                      publishMode: "schedule",
+                      scheduled_at: f.scheduled_at || toDatetimeLocal(),
                     }))
                   }
                   className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
-                    form.publishMode === 'schedule'
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-ink-200/80 bg-white text-ink-600 hover:bg-ink-50'
+                    form.publishMode === "schedule"
+                      ? "border-brand-500 bg-brand-50 text-brand-700"
+                      : "border-ink-200/80 bg-white text-ink-600 hover:bg-ink-50"
                   }`}
                 >
                   <Clock size={14} aria-hidden="true" />
@@ -458,7 +445,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
               </div>
             </Field>
 
-            {form.publishMode === 'schedule' && (
+            {form.publishMode === "schedule" && (
               <Field
                 label="Publish date & time"
                 required
@@ -486,12 +473,12 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
               fullWidth
             >
               {isEdit
-                ? form.publishMode === 'schedule'
-                  ? 'Save & schedule'
-                  : 'Save changes'
-                : form.publishMode === 'schedule'
-                ? 'Schedule post'
-                : 'Create post'}
+                ? form.publishMode === "schedule"
+                  ? "Save & schedule"
+                  : "Save changes"
+                : form.publishMode === "schedule"
+                  ? "Schedule post"
+                  : "Create post"}
             </Button>
           </form>
         </motion.div>
@@ -500,12 +487,7 @@ function BlogFormModal({ open, onClose, onSaved, blog }) {
   );
 }
 
-function DeleteBlogModal({
-  blog,
-  onClose,
-  onConfirm,
-  deleting,
-}) {
+function DeleteBlogModal({ blog, onClose, onConfirm, deleting }) {
   if (!blog) return null;
 
   return (
@@ -537,8 +519,8 @@ function DeleteBlogModal({
           </h3>
 
           <p className="mt-1.5 text-xs leading-relaxed text-ink-500">
-            This permanently removes the post. It will immediately
-            disappear from the public blog for everyone.
+            This permanently removes the post. It will immediately disappear
+            from the public blog for everyone.
           </p>
 
           <div className="mt-6 flex items-center gap-3">
@@ -567,21 +549,21 @@ function DeleteBlogModal({
 }
 
 const STATUS_BADGE_STYLES = {
-  published: 'bg-trust-50 text-trust-700 border-trust-200/60',
-  scheduled: 'bg-sky-50 text-sky-700 border-sky-200/60',
-  draft: 'bg-amber-50 text-amber-700 border-amber-200/60',
+  published: "bg-trust-50 text-trust-700 border-trust-200/60",
+  scheduled: "bg-sky-50 text-sky-700 border-sky-200/60",
+  draft: "bg-amber-50 text-amber-700 border-amber-200/60",
 };
 
 const STATUS_DOT_STYLES = {
-  published: 'bg-trust-500',
-  scheduled: 'bg-sky-500',
-  draft: 'bg-amber-500',
+  published: "bg-trust-500",
+  scheduled: "bg-sky-500",
+  draft: "bg-amber-500",
 };
 
 const STATUS_LABELS = {
-  published: 'Published',
-  scheduled: 'Scheduled',
-  draft: 'Draft',
+  published: "Published",
+  scheduled: "Scheduled",
+  draft: "Draft",
 };
 
 function BlogCardSkeleton() {
@@ -598,17 +580,13 @@ function BlogCardSkeleton() {
   );
 }
 
-function AdminBlogCard({
-  blog,
-  onEdit,
-  onDelete,
-}) {
+function AdminBlogCard({ blog, onEdit, onDelete }) {
   const router = useRouter();
   const coverUrl = resolveMediaUrl(blog.cover_image);
-  const status = blog.status || 'draft';
+  const status = blog.status || "draft";
 
   const handleCardClick = () => {
-    if (status === 'published' && blog.slug) {
+    if (status === "published" && blog.slug) {
       router.push(`/blog/${blog.slug}`);
     }
   };
@@ -616,9 +594,9 @@ function AdminBlogCard({
   return (
     <Card
       className={`group flex h-full flex-col overflow-hidden rounded-3xl border border-ink-200/80 bg-white shadow-soft transition-all duration-300 ${
-        status === 'published'
-          ? 'cursor-pointer hover:border-brand-300 hover:shadow-card-hover'
-          : ''
+        status === "published"
+          ? "cursor-pointer hover:border-brand-300 hover:shadow-card-hover"
+          : ""
       }`}
       hover={false}
       onClick={handleCardClick}
@@ -685,7 +663,7 @@ function AdminBlogCard({
 
         <div className="mt-auto flex items-center gap-2 pt-2 text-[11px] font-medium text-ink-400">
           <span className="flex items-center gap-1.5">
-            {status === 'scheduled' ? (
+            {status === "scheduled" ? (
               <>
                 <Clock size={12} aria-hidden="true" />
                 Goes live {formatDateTime(blog.scheduled_at)}
@@ -710,10 +688,10 @@ function AdminBlogCard({
 }
 
 const STATUS_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'published', label: 'Published' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'draft', label: 'Draft' },
+  { value: "all", label: "All" },
+  { value: "published", label: "Published" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "draft", label: "Draft" },
 ];
 
 function AdminBlogContent() {
@@ -724,14 +702,14 @@ function AdminBlogContent() {
   const [blogToEdit, setBlogToEdit] = useState(null);
   const [blogToDelete, setBlogToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState("published");
 
   const fetchBlogs = async () => {
     try {
-      const { data } = await api.get('/admin/blogs');
+      const { data } = await api.get("/admin/blogs");
       setBlogs(data.blogs || []);
     } catch {
-      toast('Could not load blog posts', { type: 'error' });
+      toast("Could not load blog posts", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -746,12 +724,8 @@ function AdminBlogContent() {
 
   const filteredBlogs = useMemo(
     () =>
-      blogs.filter(
-        (b) =>
-          statusFilter === 'all' ||
-          b.status === statusFilter
-      ),
-    [blogs, statusFilter]
+      blogs.filter((b) => statusFilter === "all" || b.status === statusFilter),
+    [blogs, statusFilter],
   );
 
   const pager = usePagination(filteredBlogs, {
@@ -766,18 +740,16 @@ function AdminBlogContent() {
     try {
       await api.delete(`/admin/blogs/${blogToDelete.id}`);
 
-      toast('Blog post deleted', {
-        type: 'success',
+      toast("Blog post deleted", {
+        type: "success",
       });
 
       setBlogToDelete(null);
       fetchBlogs();
     } catch (err) {
-      toast(
-        err.response?.data?.message ||
-          'Could not delete the post',
-        { type: 'error' }
-      );
+      toast(err.response?.data?.message || "Could not delete the post", {
+        type: "error",
+      });
     } finally {
       setDeleting(false);
     }
@@ -792,35 +764,50 @@ function AdminBlogContent() {
           </h1>
 
           <p className="mt-0.5 text-xs text-ink-500 sm:text-sm">
-            Only admins and staff can create, edit or delete posts.
-            Published posts are visible to every visitor, customer
-            and provider.
+            Only admins and staff can create, edit or delete posts. Published
+            posts are visible to every visitor, customer and provider.
           </p>
         </div>
 
-        <Button
-          icon={<Plus size={16} />}
-          onClick={() => setCreateOpen(true)}
-        >
+        <Button icon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
           New post
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setStatusFilter(f.value)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === f.value
-                ? 'bg-brand-600 text-white'
-                : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+        {STATUS_FILTERS.map((f) => {
+          const count =
+            f.value === "all"
+              ? blogs.length
+              : blogs.filter((blog) => blog.status === f.value).length;
+
+          const isActive = statusFilter === f.value;
+
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setStatusFilter(f.value)}
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                isActive
+                  ? "bg-brand-600 text-white"
+                  : "bg-ink-100 text-ink-600 hover:bg-ink-200"
+              }`}
+            >
+              <span>{f.label}</span>
+
+              <span
+                className={`inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-white text-ink-500 shadow-xs"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
