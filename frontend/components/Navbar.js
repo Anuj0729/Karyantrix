@@ -36,7 +36,6 @@ export default function Navbar() {
     { href: '/providers', label: 'Find Providers' },
     { href: '/categories', label: 'Browse Services' },
     { href: '/requirements', label: 'Requirements' },
-    { href: '/blog', label: 'Blog' },
   ];
 
   const isLinkActive = (href) => {
@@ -77,14 +76,14 @@ export default function Navbar() {
           </div>
         </Link>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-1 lg:flex">
           {navLinks.map((l) => {
             const active = isLinkActive(l.href);
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                className={`relative px-3.5 py-2 text-sm font-semibold rounded-lg transition-all duration-150 ${
+                className={`relative whitespace-nowrap px-3 py-2 text-sm font-semibold rounded-lg transition-all duration-150 ${
                   active
                     ? 'text-brand-700 bg-brand-50/80 shadow-xs'
                     : 'text-ink-600 hover:text-ink-900 hover:bg-ink-100/60'
@@ -96,14 +95,14 @@ export default function Navbar() {
           })}
         </div>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <LanguageSwitcher />
           <ThemeToggle />
           {!user ? (
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                className={`whitespace-nowrap px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors ${
                   pathname === '/login'
                     ? 'text-brand-600 bg-brand-50/70'
                     : 'text-ink-600 hover:text-ink-900 hover:bg-ink-100/60'
@@ -122,7 +121,7 @@ export default function Navbar() {
               {user.role === 'provider' && (
                 <Link
                   href="/provider/dashboard"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     pathname?.startsWith('/provider/dashboard')
                       ? 'bg-brand-50 text-brand-700 font-bold'
                       : 'text-ink-700 hover:bg-ink-100/70'
@@ -135,7 +134,7 @@ export default function Navbar() {
               {(user.role === 'admin' || user.role === 'staff') && (
                 <Link
                   href="/admin"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     pathname?.startsWith('/admin')
                       ? 'bg-brand-50 text-brand-700 font-bold'
                       : 'text-ink-700 hover:bg-ink-100/70'
@@ -148,7 +147,7 @@ export default function Navbar() {
               {(user.role === 'customer' || user.role === 'provider') && (
                 <Link
                   href="/bookings"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     pathname?.startsWith('/bookings')
                       ? 'bg-brand-50 text-brand-700 font-bold'
                       : 'text-ink-700 hover:bg-ink-100/70'
@@ -162,7 +161,7 @@ export default function Navbar() {
                 <Link
                   href="/support"
                   title="Help & Support"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     pathname?.startsWith('/support')
                       ? 'bg-brand-50 text-brand-700 font-bold'
                       : 'text-ink-700 hover:bg-ink-100/70'
@@ -175,7 +174,7 @@ export default function Navbar() {
               {user.role === 'customer' && !user.can_switch_to_provider && (
                 <Link
                   href="/become-provider"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     pathname === '/become-provider'
                       ? 'bg-accent-50 text-accent-700 font-bold'
                       : 'text-accent-600 hover:bg-accent-50/60'
@@ -190,7 +189,7 @@ export default function Navbar() {
                   type="button"
                   onClick={handleSwitchToProvider}
                   disabled={switching}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg text-accent-600 transition-colors hover:bg-accent-50/60 disabled:opacity-60"
+                  className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg text-accent-600 transition-colors hover:bg-accent-50/60 disabled:opacity-60"
                 >
                   {switching ? 'Switching…' : 'Switch to Provider'}
                 </button>
@@ -225,7 +224,7 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <LanguageSwitcher />
           <ThemeToggle />
           {user && (user.role === 'customer' || user.role === 'provider') && <ChatButton />}
@@ -248,7 +247,7 @@ export default function Navbar() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden border-t border-ink-200/70 bg-white/95 backdrop-blur-lg md:hidden"
+            className="overflow-hidden border-t border-ink-200/70 bg-white/95 backdrop-blur-lg lg:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-4">
               {navLinks.map((l) => (

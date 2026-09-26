@@ -94,6 +94,16 @@ const initSocket = (io) => {
       }
     });
 
+    socket.on("blog:join", ({ slug } = {}) => {
+      if (!slug) return;
+      socket.join(`blog_${slug}`);
+    });
+
+    socket.on("blog:leave", ({ slug } = {}) => {
+      if (!slug) return;
+      socket.leave(`blog_${slug}`);
+    });
+
     socket.on("disconnect", () => {
       if (process.env.NODE_ENV !== "production") {
         console.log(`Socket disconnected: user ${socket.userId}`);
@@ -112,6 +122,11 @@ const emitBroadcast = (event, payload) => {
   ioInstance.emit(event, payload);
 };
 
+const emitToBlogRoom = (slug, event, payload) => {
+  if (!ioInstance || !slug) return;
+  ioInstance.to(`blog_${slug}`).emit(event, payload);
+};
+
 const isUserActiveInConversation = (userId, conversationId) => {
   if (!ioInstance || !userId || !conversationId) return false;
   const room = ioInstance.sockets.adapter.rooms.get(`conversation_${conversationId}`);
@@ -128,6 +143,7 @@ module.exports = {
   initSocket,
   emitToUser,
   emitBroadcast,
+  emitToBlogRoom,
   getParticipants,
   isUserActiveInConversation,
 };
